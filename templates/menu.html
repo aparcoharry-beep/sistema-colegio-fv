@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Menú Principal</title>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body {
+            background: url('https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=1500&q=80') no-repeat center center fixed;
+            background-size: cover;
+            margin: 0;
+            font-family: 'Montserrat', Arial, sans-serif;
+        }
+        .menu-box {
+            background: rgba(10, 60, 70, 0.97);
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+            width: 320px;
+            margin: 48px auto;
+            padding: 0 0 12px 0;
+            overflow: hidden;
+        }
+        .menu-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: #0e4a5a;
+            color: #fff;
+            padding: 18px 22px 12px 22px;
+            font-size: 1.2rem;
+            font-weight: 700;
+            letter-spacing: 1px;
+        }
+        .menu-header i {
+            font-size: 1.3rem;
+        }
+        .menu-list {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+        }
+        .menu-list li {
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+        }
+        .menu-list li:last-child {
+            border-bottom: none;
+        }
+        .menu-link {
+            display: flex;
+            align-items: center;
+            color: #fff;
+            text-decoration: none;
+            padding: 16px 22px;
+            font-size: 1.08rem;
+            transition: background 0.18s;
+        }
+        .menu-link:hover {
+            background: linear-gradient(90deg, #1a5a6e 0%, #0e4a5a 100%);
+        }
+        .menu-link i {
+            margin-right: 16px;
+            font-size: 1.2rem;
+            width: 22px;
+            text-align: center;
+        }
+        @media (max-width: 500px) {
+            .menu-box { width: 98vw; }
+        }
+    </style>
+</head>
+<body>
+    <div class="menu-box">
+        <div class="menu-header">
+            <span>Menu</span>
+            <i class="fas fa-bars"></i>
+        </div>
+        <ul class="menu-list">
+            <li><a class="menu-link" href="/cargar-estudiantes"><i class="fas fa-user-plus"></i>Cargar/Agregar Estudiantes</a></li>
+            <li><a class="menu-link" href="/generar-qr"><i class="fas fa-qrcode"></i>Generar QR</a></li>
+            <li><a class="menu-link" href="/asistencia"><i class="fas fa-list-check"></i>Lista de Asistencia</a></li>
+            <li><a class="menu-link" href="/reportes"><i class="fas fa-chart-bar"></i>Reportes</a></li>
+            <li><a class="menu-link" href="/logout" style="color:#ffb347;"><i class="fas fa-sign-out-alt"></i>Cerrar sesión</a></li>
+        </ul>
+    </div>
+</body>
+<script>
+// Seguridad extra: forzar revalidación de sesión en cada carga
+fetch('/check_auth')
+    .then(r => r.json())
+    .then(data => {
+        if (!data.authenticated) {
+            window.location.href = '/';
+        }
+    })
+    .catch(() => { window.location.href = '/'; });
+</script>
+</html>

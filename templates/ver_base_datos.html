@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ver Base de Datos</title>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body {
+            background: #f4f8fb;
+            font-family: 'Montserrat', Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            max-width: 1100px;
+            margin: 40px auto;
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.10);
+            padding: 32px 24px;
+        }
+        h1 {
+            color: #0e4a5a;
+            margin-bottom: 24px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 32px;
+        }
+        th, td {
+            border: 1px solid #e0e0e0;
+            padding: 10px 8px;
+            text-align: left;
+        }
+        th {
+            background: #0e4a5a;
+            color: #fff;
+        }
+        tr:nth-child(even) {
+            background: #f7fafc;
+        }
+        .section-title {
+            color: #1a5a6e;
+            margin-top: 32px;
+            margin-bottom: 12px;
+            font-size: 1.2em;
+        }
+        .back-link {
+            display: inline-block;
+            margin-bottom: 18px;
+            color: #0e4a5a;
+            text-decoration: none;
+            font-weight: bold;
+        }
+        .back-link i {
+            margin-right: 6px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="/menu" class="back-link"><i class="fas fa-arrow-left"></i>Volver al menú</a>
+        <h1>Base de Datos del Sistema</h1>
+        <div>
+            <div class="section-title">Usuarios</div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th><th>DNI</th><th>Nombre</th><th>Apellido</th><th>Email</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for u in usuarios %}
+                    <tr>
+                        <td>{{ u.id }}</td>
+                        <td>{{ u.dni }}</td>
+                        <td>{{ u.nombre }}</td>
+                        <td>{{ u.apellido }}</td>
+                        <td>{{ u.email }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <div>
+            <div class="section-title">Estudiantes</div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th><th>Código</th><th>Nombre</th><th>Apellido</th><th>DNI</th><th>Grado</th><th>Sección</th><th>Activo</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for e in estudiantes %}
+                    <tr>
+                        <td>{{ e.id }}</td>
+                        <td>{{ e.codigo_id }}</td>
+                        <td>{{ e.nombre }}</td>
+                        <td>{{ e.apellido }}</td>
+                        <td>{{ e.dni }}</td>
+                        <td>{{ e.grado }}</td>
+                        <td>{{ e.seccion }}</td>
+                        <td>{{ 'Sí' if e.activo else 'No' }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <div>
+            <div class="section-title">Asistencias</div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th><th>Estudiante</th><th>Fecha</th><th>Hora</th><th>Asistió</th><th>Tipo</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for a in asistencias %}
+                    <tr>
+                        <td>{{ a.id }}</td>
+                        <td>{{ a.estudiante.nombre }} {{ a.estudiante.apellido }}</td>
+                        <td>{{ a.fecha }}</td>
+                        <td>{{ a.hora }}</td>
+                        <td>{{ 'Sí' if a.asistio else 'No' }}</td>
+                        <td>{{ a.tipo }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</body>
+</html>
