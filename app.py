@@ -9,8 +9,6 @@ import base64
 import os
 from sqlalchemy.exc import IntegrityError
 import functools, time
-import cv2
-from pyzbar.pyzbar import decode as pyzbar_decode
 from datetime import timezone, time as time_obj
 
 app = Flask(__name__)
