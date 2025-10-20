@@ -1,26 +1,17 @@
 # render.yaml
-# Este archivo le dice a Render cómo construir y desplegar tu aplicación.
-# Es la forma recomendada de configurar tu servicio.
-
 services:
   - type: web
     name: sistema-colegio-fv
     env: python
-    plan: free # O el plan que prefieras
-    
-    # 1. Comando de Build:
-    #    - Primero, actualiza los paquetes del sistema e instala 'libzbar0'.
-    #    - Luego, instala las dependencias de Python como siempre.
-    buildCommand: |
-      apt-get update && apt-get install -y libzbar0 && pip install -r requirements.txt
+    plan: free
 
-    # 2. Comando de Inicio:
-    #    Render usará esto para iniciar tu aplicación.
-    startCommand: gunicorn app:app
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "gunicorn app:app"
 
-    # 3. Disco Persistente (¡Importante para SQLite!):
-    #    Esto crea un disco que no se borra entre despliegues,
-    #    guardando tu base de datos en la carpeta 'instance'.
+    packages:
+      apt:
+        - libzbar0
+
     disk:
       name: sqlite-data
       mountPath: /app/instance
