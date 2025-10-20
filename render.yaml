@@ -12,8 +12,7 @@ services:
     #    - Primero, actualiza los paquetes del sistema e instala 'libzbar0'.
     #    - Luego, instala las dependencias de Python como siempre.
     buildCommand: |
-      apt-get update && apt-get install -y libzbar0
-      pip install -r requirements.txt
+      apt-get update && apt-get install -y libzbar0 && pip install -r requirements.txt
 
     # 2. Comando de Inicio:
     #    Render usará esto para iniciar tu aplicación.
