@@ -9,6 +9,8 @@ import base64
 import os
 from sqlalchemy.exc import IntegrityError
 import functools, time
+import cv2
+from pyzbar.pyzbar import decode as pyzbar_decode
 from datetime import timezone, time as time_obj
 
 app = Flask(__name__)
@@ -691,7 +693,6 @@ def inicializar_base_de_datos():
 
 # --- INICIO: Transmisión de video con OpenCV ---
 def gen_frames(fecha_str=None, turno_str=None, user_id=1):
-    """DEPRECADO: Esta función usa OpenCV en el servidor, lo cual no es compatible con la mayoría de servicios en la nube. La lógica de escaneo se ha movido al frontend (asistencia.js)."""
     """Generador de frames de la cámara que también detecta QR."""
     try:
         fecha_dt = datetime.strptime(fecha_str, '%Y-%m-%d').date() if fecha_str else date.today()
@@ -702,10 +703,6 @@ def gen_frames(fecha_str=None, turno_str=None, user_id=1):
 
     print(f"Iniciando escaneo para Fecha: {fecha_dt}, Turno: {turno}")
 
-    # --- INICIO BLOQUE COMENTADO ---
-    # El siguiente código no se ejecutará en producción.
-    # Se deja como referencia de la lógica original.
-    """
     cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
     last_scan_time = 0
     scan_interval = 0.5  # 0.5 segundos para escaneo rápido y continuo
@@ -761,22 +758,17 @@ def gen_frames(fecha_str=None, turno_str=None, user_id=1):
                    b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
     finally:
         cap.release()
-    """
-    # --- FIN BLOQUE COMENTADO ---
-    # Devolvemos un generador vacío para no romper la ruta si se llama accidentalmente.
-    yield b''
 
 @app.route('/video_feed')
 @require_auth
 def video_feed():
     """Ruta que sirve el stream de video."""
-    # Esta ruta ya no es necesaria para el escaneo QR, que ahora se hace en el frontend.
-    # Devolvemos una respuesta vacía para evitar errores si el frontend antiguo la llama.
-    return Response("El streaming de video ha sido movido al cliente.", mimetype='text/plain')
+    fecha = request.args.get('fecha')
+    turno = request.args.get('turno')
+    user_id = session.get('user_id', 1)
+    return Response(gen_frames(fecha_str=fecha, turno_str=turno, user_id=user_id), mimetype='multipart/x-mixed-replace; boundary=frame')
 
 # --- ENDPOINT para que el frontend consulte los eventos de escaneo ---
-# Este endpoint ya no es necesario, ya que el frontend procesará los resultados directamente.
-# Lo mantenemos por si se usa en otra parte, pero la nueva lógica no lo necesita.
 @app.route('/api/scan_events')
 @require_auth
 def get_scan_events():
@@ -786,21 +778,12 @@ def get_scan_events():
     SCAN_EVENTS.clear() # Limpiar la lista original
     return jsonify({'events': events})
 
-# --- INICIALIZACIÓN Y ARRANQUE ---
-# 1. Inicializar y migrar la base de datos ANTES de iniciar el servidor.
-# Esta llamada se ejecuta una vez cuando el proceso de Gunicorn inicia en el servidor.
-inicializar_base_de_datos()
-
 if __name__ == '__main__':
+    # 1. Inicializar y migrar la base de datos ANTES de iniciar el servidor
+    inicializar_base_de_datos()
+    
     # 2. Iniciar el servidor Flask
-    # El servidor en la nube (como Render) ignorará este bloque y usará el comando de Gunicorn.
-    app.run(host='0.0.0.0', port=5000, debug=True)
-# --- INICIALIZACIÓN Y ARRANQUE ---
-# 1. Inicializar y migrar la base de datos ANTES de iniciar el servidor.
-# Esta llamada se ejecuta una vez cuando el proceso de Gunicorn inicia en el servidor.
-inicializar_base_de_datos()
-
-if __name__ == '__main__':
-    # 2. Iniciar el servidor Flask
-    # El servidor en la nube (como Render) ignorará este bloque y usará el comando de Gunicorn.
+    # Este bloque solo se ejecuta cuando corres "python app.py" en tu computadora.
+    # El servidor en la nube (como Render o Heroku) ignorará esto y usará el comando del Procfile (Gunicorn).
+    # El puerto 5000 es estándar, pero los servicios en la nube pueden asignarte uno diferente automáticamente.
     app.run(host='0.0.0.0', port=5000, debug=True)

@@ -1,7 +1,5 @@
 // JS para asistencia.html: carga estudiantes, consulta asistencias, guarda, escanea QR, exporta Excel/PDF
 
-// Importar la librería jsQR para el escaneo de códigos QR en el navegador.
-import jsQR from "https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js";
 
 document.addEventListener('DOMContentLoaded', function() {
     const gradoSelect = document.getElementById('gradoSelect');
@@ -16,11 +14,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const asistenciaResumen = document.getElementById('asistenciaResumen');
     const scanSound = document.getElementById('scan-sound');
     const errorSound = document.getElementById('error-sound');
-    // Elementos para el nuevo escáner de QR en el frontend
-    const videoElement = document.getElementById('qrVideo');
-    const canvasElement = document.createElement('canvas');
-    const canvas = canvasElement.getContext('2d', { willReadFrequently: true });
-    let animationFrameId = null;
+    const videoStreamElement = document.getElementById('qrVideo'); // Renombrado para claridad
     window.asistencias = [];
 
     // --- Toast visual ---
@@ -61,92 +55,90 @@ document.addEventListener('DOMContentLoaded', function() {
         fechaSelect.value = today;
     }
 
-    // --- NUEVA LÓGICA DE CÁMARA CON jsQR (FRONTEND) ---
-    let lastScanTime = 0;
-    const scanInterval = 2000; // 2 segundos de espera entre escaneos del mismo código
+    // --- Lógica de cámara con OpenCV (Backend) ---
+    let pollingInterval = null;
 
-    async function registrarAsistenciaQR(codigoId) {
+    function procesarEventoScan(evento) {
+        const playSound = (soundElement) => {
+            if (soundElement) {
+                soundElement.currentTime = 0;
+                soundElement.play().catch(e => console.error("Error al reproducir sonido:", e));
+            }
+        };
+
+        if (evento.status === 'success') {
+            playSound(scanSound);
+            showToast(`Asistencia de ${evento.student_name} registrada.`, '#43e97b');
+
+            // Actualizar la tabla en tiempo real si el estudiante está en la lista visible
+            if (window.asistencias && window.asistencias.length > 0) {
+                const estudianteEnLista = window.asistencias.find(a => a.codigo_id === evento.codigo_id);
+                if (estudianteEnLista && !estudianteEnLista.asistio) {
+                    estudianteEnLista.asistio = true;
+                    estudianteEnLista.hora = new Date().toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+                    renderTabla();
+                }
+            }
+        } else if (evento.status === 'duplicate') {
+            playSound(errorSound);
+            showToast(`${evento.student_name} ya tiene asistencia.`, '#f39c12');
+        } else if (evento.status === 'not_found') {
+            playSound(errorSound);
+            showToast(`QR no reconocido.`, '#e74c3c');
+        }
+    }
+
+    async function pollScanEvents() {
+        try {
+            const response = await fetch('/api/scan_events');
+            const data = await response.json();
+            if (data.events && data.events.length > 0) {
+                data.events.forEach(procesarEventoScan);
+            }
+        } catch (error) {
+            console.error("Error al consultar eventos de escaneo:", error);
+        }
+    }
+
+    function abrirQRModal() {
         const fecha = fechaSelect.value;
         const turno = turnoSelect.value;
 
-        const response = await fetch('/api/asistencia/scan', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ codigo_id: codigoId, fecha, turno })
-        });
-        const data = await response.json();
-
-        if (data.success) {
-            scanSound.play().catch(e => console.error("Error al reproducir sonido:", e));
-            showToast(data.message, '#43e97b');
-            // Actualizar la tabla en tiempo real
-            const estudianteEnLista = window.asistencias.find(a => a.codigo_id === data.codigo_id);
-            if (estudianteEnLista && !estudianteEnLista.asistio) {
-                estudianteEnLista.asistio = true;
-                estudianteEnLista.hora = new Date().toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
-                renderTabla();
-            }
-        } else {
-            errorSound.play().catch(e => console.error("Error al reproducir sonido:", e));
-            showToast(data.message, data.message.includes('encontrado') ? '#e74c3c' : '#f39c12');
-        }
-    }
-
-    function tick() {
-        if (videoElement.readyState === videoElement.HAVE_ENOUGH_DATA) {
-            canvasElement.height = videoElement.videoHeight;
-            canvasElement.width = videoElement.videoWidth;
-            canvas.drawImage(videoElement, 0, 0, canvasElement.width, canvasElement.height);
-            const imageData = canvas.getImageData(0, 0, canvasElement.width, canvasElement.height);
-            const code = jsQR(imageData.data, imageData.width, imageData.height, {
-                inversionAttempts: "dontInvert",
-            });
-
-            if (code) {
-                const currentTime = new Date().getTime();
-                if (currentTime - lastScanTime > scanInterval) {
-                    lastScanTime = currentTime;
-                    registrarAsistenciaQR(code.data);
-                }
-            }
-        }
-        animationFrameId = requestAnimationFrame(tick);
-    }
-
-    async function abrirQRModal() {
-        if (!fechaSelect.value || !turnoSelect.value) {
-            showToast('Selecciona fecha y turno antes de escanear.', '#e74c3c');
+        if (!fecha || !turno) {
+            showToast('Por favor, selecciona fecha y turno antes de escanear.', '#e74c3c');
             return;
         }
+
+        // --- Desbloqueo de audio para navegadores (método definitivo) ---
+        if (scanSound) {
+            scanSound.play().then(() => scanSound.pause()).catch(() => {});
+        }
+        if (errorSound) {
+            errorSound.play().then(() => errorSound.pause()).catch(() => {});
+        }
+
         qrModal.style.display = 'flex';
-        try {
-            const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
-            videoElement.srcObject = stream;
-            videoElement.setAttribute("playsinline", true); // Requerido para iOS
-            videoElement.play();
-            animationFrameId = requestAnimationFrame(tick);
-            showToast("Cámara activada. Apunte el QR al lente.", '#4e54c8');
-        } catch (err) {
-            console.error("Error al acceder a la cámara: ", err);
-            showToast("No se pudo acceder a la cámara.", '#e74c3c');
-            cerrarQRModal();
+        // Pasamos fecha y turno al backend de la cámara
+        videoStreamElement.src = `/video_feed?fecha=${fecha}&turno=${turno}&t=${new Date().getTime()}`;
+        showToast("Cámara activada. Apunte el QR al lente.", '#4e54c8');
+        // Iniciar el sondeo de eventos de escaneo
+        if (!pollingInterval) {
+            pollingInterval = setInterval(pollScanEvents, 500); // Consultar cada 0.5 segundos para mayor sincronización
         }
     }
 
     function cerrarQRModal() {
         qrModal.style.display = 'none';
-        if (animationFrameId) {
-            cancelAnimationFrame(animationFrameId);
-            animationFrameId = null;
-        }
-        if (videoElement.srcObject) {
-            videoElement.srcObject.getTracks().forEach(track => track.stop());
-            videoElement.srcObject = null;
+        videoStreamElement.src = '';
+        if (pollingInterval) {
+            clearInterval(pollingInterval);
+            pollingInterval = null;
         }
     }
 
     abrirQRBtn.addEventListener('click', abrirQRModal);
     cerrarQRBtn.addEventListener('click', cerrarQRModal);
+
     // --- FIN QR ESCANEO ---
 
 
@@ -194,8 +186,12 @@ document.addEventListener('DOMContentLoaded', function() {
         }).then(r=>r.json()).then(data=>{
             if(data.success){
                 showToast('Se guardó correctamente en reportes.', '#43e97b');
-                // Recargar la lista para reflejar el estado guardado
-                cargarAsistencias();
+                gradoSelect.value = "";
+                fechaSelect.value = new Date().toISOString().split('T')[0];
+                turnoSelect.value = "manana";
+                window.asistencias = [];
+                renderTabla();
+                mostrarRangoTurno();
             }else{
                 showToast('Error al guardar: ' + (data.message || 'Error desconocido.'), '#e74c3c');
             }

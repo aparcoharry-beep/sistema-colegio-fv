@@ -250,12 +250,12 @@
         <!-- Modal de QR a pantalla completa (usando la estructura de modal.css) -->
         <div id="qrModal" class="modal-fullscreen">
             <button id="cerrarQR" class="close-btn-fullscreen" style="position:absolute;top:20px;right:40px;z-index:1010;padding:16px 32px;font-size:1.3rem;background:#4e54c8;color:#fff;border:none;border-radius:8px;box-shadow:0 2px 12px #43e97b;cursor:pointer;">Cerrar cámara</button>
-            <video id="qrVideo" style="width: 90%; height: 90%; object-fit: contain; background-color: #000; border-radius: 10px; box-shadow: 0 0 24px #43e97b;"></video>
+            <img id="qrVideo" src="" alt="Cargando cámara..." style="width: 90%; height: 90%; object-fit: contain; background-color: #000; border-radius: 10px; box-shadow: 0 0 24px #43e97b;">
         </div>
     </div>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-    <script type="module" src="/static/asistencia.js?v=1.1"></script>
+    <script src="/static/asistencia.js"></script>
     <!-- Elemento de audio para el sonido de escaneo -->
     <audio id="scan-sound" src="https://cdn.pixabay.com/download/audio/2021/08/04/audio_bb630cc098.mp3" preload="auto"></audio>
     <audio id="error-sound" src="https://cdn.pixabay.com/download/audio/2022/03/10/audio_c3b14a8892.mp3" preload="auto"></audio>

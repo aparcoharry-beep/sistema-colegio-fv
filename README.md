@@ -74,7 +74,7 @@ pandas==2.1.1
 openpyxl==3.1.2
 reportlab==4.0.4
 Pillow==10.0.1
-gunicorn==21.2.0
+gunicorn==22.0.0
 ```
 
 ## 🚀 Instalación y Configuración
