@@ -795,3 +795,12 @@ if __name__ == '__main__':
     # 2. Iniciar el servidor Flask
     # El servidor en la nube (como Render) ignorará este bloque y usará el comando de Gunicorn.
     app.run(host='0.0.0.0', port=5000, debug=True)
+# --- INICIALIZACIÓN Y ARRANQUE ---
+# 1. Inicializar y migrar la base de datos ANTES de iniciar el servidor.
+# Esta llamada se ejecuta una vez cuando el proceso de Gunicorn inicia en el servidor.
+inicializar_base_de_datos()
+
+if __name__ == '__main__':
+    # 2. Iniciar el servidor Flask
+    # El servidor en la nube (como Render) ignorará este bloque y usará el comando de Gunicorn.
+    app.run(host='0.0.0.0', port=5000, debug=True)
