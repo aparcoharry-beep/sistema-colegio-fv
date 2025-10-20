@@ -7,6 +7,7 @@ import qrcode
 import io
 import base64
 import os
+from sqlalchemy.exc import IntegrityError
 import functools, time
 import cv2
 from pyzbar.pyzbar import decode as pyzbar_decode
@@ -702,28 +703,17 @@ def gen_frames(fecha_str=None, turno_str=None, user_id=1):
 
     print(f"Iniciando escaneo para Fecha: {fecha_dt}, Turno: {turno}")
 
+    # --- CORRECCIÓN: Inicializar el detector de QR de OpenCV ---
     detector = cv2.QRCodeDetector()
-    # --- CORRECCIÓN: Se elimina cv2.CAP_DSHOW para compatibilidad con Linux (Render) ---
-    # OpenCV elegirá automáticamente el backend apropiado.
-    cap = cv2.VideoCapture(0)
+
+    cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
     last_scan_time = 0
     scan_interval = 0.5  # 0.5 segundos para escaneo rápido y continuo
     last_code = None
 
     if not cap.isOpened():
         print("Error: No se pudo abrir la cámara.")
-        # --- MEJORA: Generar una imagen de error para el usuario ---
-        # Intenta cargar una imagen de error predefinida.
-        # Si no la encuentra, crea una imagen de error sobre la marcha.
-        img_error = cv2.imread(os.path.join(app.static_folder, 'error_camara.png'))
-        if img_error is None:
-            img_error = cv2.UMat(240, 320, cv2.CV_8UC3, (255, 255, 255)).get()
-            cv2.putText(img_error, "Error: Camara no disponible", (20, 120), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 1)
-        ret, buffer = cv2.imencode('.jpg', img_error)
-        frame = buffer.tobytes()
-        yield (b'--frame\r\n'
-               b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
-        return # Termina la ejecución del generador
+        return
 
     try:
         while True:
