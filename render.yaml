@@ -8,10 +8,6 @@ services:
     buildCommand: "pip install -r requirements.txt"
     startCommand: "gunicorn app:app"
 
-    packages:
-      apt:
-        - libzbar0
-
     disk:
       name: sqlite-data
       mountPath: /app/instance
