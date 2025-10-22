@@ -55,90 +55,248 @@ document.addEventListener('DOMContentLoaded', function() {
         fechaSelect.value = today;
     }
 
-    // --- Lógica de cámara con OpenCV (Backend) ---
-    let pollingInterval = null;
+/* === BLOQUE REEMPLAZO: Lector QR robusto con borde y sonidos === */
+(function() {
+  const video = document.getElementById('qrVideo');
+  const canvasProcess = document.getElementById('qrCanvasProcess'); // oculto, para getImageData
+  const canvasOverlay = document.getElementById('qrCanvasOverlay'); // visible, para dibujar borde
+  const abrirBtn = document.getElementById('abrirQR');
+  const cerrarBtn = document.getElementById('cerrarQR');
+  const scanSoundEl = document.getElementById('scan-sound');
+  const errorSoundEl = document.getElementById('error-sound');
 
-    function procesarEventoScan(evento) {
-        const playSound = (soundElement) => {
-            if (soundElement) {
-                soundElement.currentTime = 0;
-                soundElement.play().catch(e => console.error("Error al reproducir sonido:", e));
-            }
-        };
+  let stream = null;
+  let scanActive = false;
+  let lastDetected = null;
+  const DEBOUNCE_MS = 1500;
 
-        if (evento.status === 'success') {
-            playSound(scanSound);
-            showToast(`Asistencia de ${evento.student_name} registrada.`, '#43e97b');
+  // Helper: play sound safely
+  function safePlay(el){
+    if(!el) return;
+    try { el.currentTime = 0; el.play().catch(()=>{}); } catch(e){}
+  }
 
-            // Actualizar la tabla en tiempo real si el estudiante está en la lista visible
-            if (window.asistencias && window.asistencias.length > 0) {
-                const estudianteEnLista = window.asistencias.find(a => a.codigo_id === evento.codigo_id);
-                if (estudianteEnLista && !estudianteEnLista.asistio) {
-                    estudianteEnLista.asistio = true;
-                    estudianteEnLista.hora = new Date().toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
-                    renderTabla();
-                }
-            }
-        } else if (evento.status === 'duplicate') {
-            playSound(errorSound);
-            showToast(`${evento.student_name} ya tiene asistencia.`, '#f39c12');
-        } else if (evento.status === 'not_found') {
-            playSound(errorSound);
-            showToast(`QR no reconocido.`, '#e74c3c');
-        }
+  // Ajusta overlay para cubrir exactamente el video en pantalla
+  function resizeOverlay(){
+    const rect = video.getBoundingClientRect();
+    canvasOverlay.style.left = rect.left + 'px';
+    canvasOverlay.style.top = rect.top + 'px';
+    canvasOverlay.style.width = rect.width + 'px';
+    canvasOverlay.style.height = rect.height + 'px';
+    canvasOverlay.width = Math.floor(rect.width * (window.devicePixelRatio || 1));
+    canvasOverlay.height = Math.floor(rect.height * (window.devicePixelRatio || 1));
+    canvasOverlay.getContext('2d').setTransform(window.devicePixelRatio || 1,0,0,window.devicePixelRatio || 1,0,0);
+  }
+
+  // Esperar a video listo
+  function waitVideoReady(videoEl, timeoutMs=2500){
+    return new Promise(resolve => {
+      const start = Date.now();
+      (function check(){
+        if(videoEl.videoWidth && videoEl.videoHeight) return resolve(true);
+        if(Date.now() - start > timeoutMs) return resolve(false);
+        requestAnimationFrame(check);
+      })();
+    });
+  }
+
+  async function startCameraAndScan(){
+    const fecha = fechaSelect.value;
+    const turno = turnoSelect.value;
+    if (!fecha || !turno) {
+      showToast('Por favor, selecciona fecha y turno antes de escanear.', '#e74c3c');
+      return;
     }
 
-    async function pollScanEvents() {
-        try {
-            const response = await fetch('/api/scan_events');
-            const data = await response.json();
-            if (data.events && data.events.length > 0) {
-                data.events.forEach(procesarEventoScan);
-            }
-        } catch (error) {
-            console.error("Error al consultar eventos de escaneo:", error);
-        }
+    if (typeof jsQR === 'undefined') {
+      console.error('jsQR no está cargado. Añade: <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>');
+      showToast('Falta librería jsQR. Revisa la consola.', '#e74c3c');
+      return;
     }
 
-    function abrirQRModal() {
-        const fecha = fechaSelect.value;
-        const turno = turnoSelect.value;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment", width:{ideal:1280}, height:{ideal:720} }, audio:false });
+      video.srcObject = stream;
+      await video.play();
+      // esperar dims
+      await waitVideoReady(video, 2500);
 
-        if (!fecha || !turno) {
-            showToast('Por favor, selecciona fecha y turno antes de escanear.', '#e74c3c');
-            return;
-        }
+      // asegurarse que overlay se ajuste al tamaño y posición del video
+      resizeOverlay();
+      window.addEventListener('resize', resizeOverlay);
 
-        // --- Desbloqueo de audio para navegadores (método definitivo) ---
-        if (scanSound) {
-            scanSound.play().then(() => scanSound.pause()).catch(() => {});
-        }
-        if (errorSound) {
-            errorSound.play().then(() => errorSound.pause()).catch(() => {});
-        }
+      qrModal.style.display = 'flex';
+      scanActive = true;
+      requestAnimationFrame(scanLoop);
+      // desbloqueo de audio (intento silencioso para permitir play)
+      safePlay(scanSoundEl); scanSoundEl && scanSoundEl.pause && scanSoundEl.pause();
+      safePlay(errorSoundEl); errorSoundEl && errorSoundEl.pause && errorSoundEl.pause();
 
-        qrModal.style.display = 'flex';
-        // Pasamos fecha y turno al backend de la cámara
-        videoStreamElement.src = `/video_feed?fecha=${fecha}&turno=${turno}&t=${new Date().getTime()}`;
-        showToast("Cámara activada. Apunte el QR al lente.", '#4e54c8');
-        // Iniciar el sondeo de eventos de escaneo
-        if (!pollingInterval) {
-            pollingInterval = setInterval(pollScanEvents, 500); // Consultar cada 0.5 segundos para mayor sincronización
-        }
+      showToast("Cámara activada. Apunte el QR al lente.", '#4e54c8');
+    } catch (err) {
+      console.error("Error al acceder a la cámara:", err);
+      showToast("No se pudo acceder a la cámara. Revisa permisos o usa HTTPS.", '#e74c3c');
+    }
+  }
+
+  function stopCamera(){
+    scanActive = false;
+    window.removeEventListener('resize', resizeOverlay);
+    if(stream) { stream.getTracks().forEach(t=>t.stop()); stream=null; }
+    try{ video.pause(); }catch(e){}
+    video.srcObject = null;
+    // limpiar overlay
+    const ctxO = canvasOverlay.getContext('2d');
+    const dpr = window.devicePixelRatio || 1;
+    ctxO.clearRect(0,0,canvasOverlay.width / dpr, canvasOverlay.height / dpr);
+    qrModal.style.display = 'none';
+  }
+
+  // Dibuja polígono en overlay con color especificado
+  // AHORA ESPERA COORDENADAS EN CSS PIXELS (TAMAÑO DE PANTALLA)
+  function drawPolygonOnOverlay(location, color='#00FF00', lineWidth=4){
+    const ctx = canvasOverlay.getContext('2d');
+    const dpr = window.devicePixelRatio || 1;
+    // Limpiar el canvas antes de dibujar. El re-escalado del contexto se encarga del DPR.
+    ctx.clearRect(0, 0, canvasOverlay.width / dpr, canvasOverlay.height / dpr);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = lineWidth;
+    ctx.beginPath();
+    
+    // Las coordenadas ya vienen mapeadas al tamaño de display (CSS pixels)
+    const tl = location.topLeftCorner;
+    const tr = location.topRightCorner;
+    const br = location.bottomRightCorner;
+    const bl = location.bottomLeftCorner;
+
+    ctx.moveTo(tl.x, tl.y);
+    ctx.lineTo(tr.x, tr.y);
+    ctx.lineTo(br.x, br.y);
+    ctx.lineTo(bl.x, bl.y);
+    ctx.closePath();
+    ctx.stroke();
+  }
+
+  // Loop principal
+  function scanLoop(){
+    if(!scanActive) return;
+
+    if(!(video.videoWidth && video.videoHeight)){
+      requestAnimationFrame(scanLoop);
+      return;
     }
 
-    function cerrarQRModal() {
-        qrModal.style.display = 'none';
-        videoStreamElement.src = '';
-        if (pollingInterval) {
-            clearInterval(pollingInterval);
-            pollingInterval = null;
-        }
+    const dpr = window.devicePixelRatio || 1;
+    const vw = video.videoWidth;
+    const vh = video.videoHeight;
+
+    const MAX_SIDE = 1000;
+    const scale = Math.min(1, MAX_SIDE / Math.max(vw, vh));
+    const procW = Math.max(320, Math.floor(vw * scale));
+    const procH = Math.max(240, Math.floor(vh * scale));
+
+    canvasProcess.width = Math.floor(procW * dpr);
+    canvasProcess.height = Math.floor(procH * dpr);
+    canvasProcess.style.width = procW + 'px';
+    canvasProcess.style.height = procH + 'px';
+
+    const ctxP = canvasProcess.getContext('2d', { willReadFrequently: true });
+    ctxP.setTransform(dpr,0,0,dpr,0,0);
+    ctxP.drawImage(video, 0, 0, procW, procH);
+
+    let imageData;
+    try {
+      imageData = ctxP.getImageData(0, 0, Math.floor(procW * dpr), Math.floor(procH * dpr));
+    } catch(e) {
+      console.error('getImageData error', e);
+      requestAnimationFrame(scanLoop);
+      return;
     }
 
-    abrirQRBtn.addEventListener('click', abrirQRModal);
-    cerrarQRBtn.addEventListener('click', cerrarQRModal);
+    const code = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: "attemptBoth" });
 
+    if(code && code.data){
+      const codigo = String(code.data).trim();
+      const now = Date.now();
+
+      // **CORRECCIÓN DE COORDENADAS**
+      // Mapear las coordenadas del QR (que están en el tamaño de la imagen procesada)
+      // al tamaño de visualización del video en la pantalla (CSS pixels).
+      const rect = video.getBoundingClientRect();
+      const ratioX = rect.width / imageData.width;
+      const ratioY = rect.height / imageData.height;
+
+      const mappedLocation = {
+        topLeftCorner: { x: code.location.topLeftCorner.x * ratioX, y: code.location.topLeftCorner.y * ratioY },
+        topRightCorner: { x: code.location.topRightCorner.x * ratioX, y: code.location.topRightCorner.y * ratioY },
+        bottomRightCorner: { x: code.location.bottomRightCorner.x * ratioX, y: code.location.bottomRightCorner.y * ratioY },
+        bottomLeftCorner: { x: code.location.bottomLeftCorner.x * ratioX, y: code.location.bottomLeftCorner.y * ratioY }
+      };
+
+      // Mostrar borde verde inmediatamente (feedback visual)
+      drawPolygonOnOverlay(mappedLocation, '#00FF00', 4);
+
+      if(!lastDetected || lastDetected.value !== codigo || (now - lastDetected.time) > DEBOUNCE_MS){
+        lastDetected = { value: codigo, time: now };
+        sendCodigoToServer(codigo, mappedLocation);
+      } else {
+        safePlay(errorSoundEl);
+        drawPolygonOnOverlay(mappedLocation, '#FF0000', 4);
+      }
+    } else {
+      const ctxO = canvasOverlay.getContext('2d');
+      ctxO.clearRect(0, 0, canvasOverlay.width / dpr, canvasOverlay.height / dpr);
+    }
+
+    requestAnimationFrame(scanLoop);
+  }
+
+  // Envía a backend y procesa respuesta
+  async function sendCodigoToServer(codigo_id, location){
+    const fecha = fechaSelect.value;
+    const turno = turnoSelect.value;
+    try {
+      const resp = await fetch('/api/asistencia/scan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ codigo_id, fecha, turno })
+      });
+      const data = await resp.json();
+
+      if(data.status === 'success'){
+        safePlay(scanSoundEl);
+        showToast(`Asistencia de ${data.student_name || 'estudiante'} registrada.`, '#43e97b');
+        drawPolygonOnOverlay(location, '#00FF00', 4);
+        setTimeout(()=>{ const ctxO = canvasOverlay.getContext('2d'); const dpr = window.devicePixelRatio || 1; ctxO.clearRect(0,0,canvasOverlay.width/dpr,canvasOverlay.height/dpr); }, 900);
+        const estudianteEnLista = window.asistencias.find(a => a.codigo_id === data.codigo_id);
+        if (estudianteEnLista && !estudianteEnLista.asistio) {
+          estudianteEnLista.asistio = true;
+          estudianteEnLista.hora = new Date().toLocaleTimeString('es-PE', { hour12:false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+          renderTabla();
+        }
+      } else if(data.status === 'duplicate'){
+        safePlay(errorSoundEl);
+        drawPolygonOnOverlay(location, '#FF0000', 4);
+        showToast(`${data.student_name || 'Estudiante'} ya tiene asistencia.`, '#e74c3c');
+        setTimeout(()=>{ const ctxO = canvasOverlay.getContext('2d'); const dpr = window.devicePixelRatio || 1; ctxO.clearRect(0,0,canvasOverlay.width/dpr,canvasOverlay.height/dpr); }, 900);
+      } else if(data.status === 'not_found'){
+        safePlay(errorSoundEl);
+        drawPolygonOnOverlay(location, '#FF8C00', 4); // Naranja para no encontrado
+        showToast('QR no reconocido.', '#e74c3c');
+      } else {
+        showToast(data.message || 'Respuesta desconocida del servidor', '#f39c12');
+      }
+    } catch(e){
+      console.error('Error enviando codigo al servidor:', e);
+      showToast('Error de conexión al enviar QR.', '#e74c3c');
+    }
+  }
+
+  // Listeners
+  abrirBtn.addEventListener('click', startCameraAndScan);
+  cerrarBtn.addEventListener('click', stopCamera);
+  document.addEventListener('keydown', (e)=>{ if(e.key === 'Escape') stopCamera(); });
+})();
     // --- FIN QR ESCANEO ---
 
 
@@ -162,8 +320,8 @@ document.addEventListener('DOMContentLoaded', function() {
         const fecha = fechaSelect.value;
         const turno = turnoSelect.value;
 
-        if (!grado || !fecha || !turno) {
-            showToast('Selecciona grado, fecha y turno antes de guardar.', '#e74c3c');
+        if (!fecha || !turno) {
+            showToast('Por favor, selecciona fecha y turno antes de escanear.', '#e74c3c');
             return;
         }
 
@@ -178,8 +336,8 @@ document.addEventListener('DOMContentLoaded', function() {
             }))
         }; // Faltaba esta llave de cierre
 
-        // El fetch no tenía la URL del endpoint
-        fetch('/api/asistencia', {
+        // CORRECCIÓN: Se añade la URL correcta al endpoint
+        fetch('/api/asistencia', { 
             method: 'POST',
             headers: {'Content-Type':'application/json'},
             body: JSON.stringify(payload)

@@ -2,19 +2,16 @@ import pandas as pd
 from flask import Flask, render_template, request, jsonify, redirect, url_for, session, Response
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
-from datetime import datetime, date, timedelta
+from datetime import datetime, date, timedelta, time as time_obj
 import qrcode
 import io
 import base64
 import os
 from sqlalchemy.exc import IntegrityError
 import functools, time
-import cv2
-from datetime import timezone, time as time_obj
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'francois-viete-2024'
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///colegio_francois_viete.db'
 # --- CONFIGURACIÓN DE BASE DE DATOS PARA PRODUCCIÓN Y DESARROLLO ---
 # Esto asegura que la base de datos se cree en una carpeta 'instance' que es estándar en Flask
 # y compatible con servicios de despliegue. Funciona tanto en local como en la nube.
@@ -32,10 +29,6 @@ app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=60)
 # Con esto, el tiempo de vida de la sesión se reinicia en cada petición,
 # por lo que el usuario no será desconectado mientras esté usando la aplicación.
 app.config['SESSION_REFRESH_EACH_REQUEST'] = True
-
-# --- Almacenamiento en memoria para eventos de escaneo ---
-# Usamos una lista para comunicar eventos de escaneo desde el hilo de la cámara al hilo principal.
-SCAN_EVENTS = []
 
 db = SQLAlchemy(app)
 
@@ -301,29 +294,43 @@ def registrar_asistencia_scan():
     if not all([codigo_id, fecha_str, turno]):
         return jsonify({'success': False, 'message': 'Datos incompletos (codigo_id, fecha, turno)'}), 400
 
+    # CORRECCIÓN: El endpoint en el frontend envía 'success: false' pero el backend espera 'status'.
+    # Se unifica la respuesta para que el frontend la entienda.
     estudiante = Estudiante.query.filter_by(codigo_id=codigo_id).first()
     if not estudiante:
-        return jsonify({'success': False, 'message': f'Estudiante con código {codigo_id} no encontrado.'}), 404
+        return jsonify({'status': 'not_found', 'message': f'Estudiante con código {codigo_id} no encontrado.'}), 200
 
     fecha_dt = datetime.strptime(fecha_str, '%Y-%m-%d').date()
     user_id = session['user_id']
-    hora_actual = datetime.now(timezone.utc).astimezone().time()
+    hora_actual = datetime.now().time()
 
     # Buscar si ya existe para no duplicar
     existente = Asistencia.query.filter_by(estudiante_id=estudiante.id, fecha=fecha_dt, turno=turno).first()
     if existente:
         if existente.asistio:
-            return jsonify({'success': True, 'message': f'{estudiante.nombre} ya tiene asistencia registrada.'})
+            return jsonify({
+                'status': 'duplicate', 
+                'message': f'{estudiante.nombre} ya tiene asistencia registrada.',
+                'student_name': f'{estudiante.apellido} {estudiante.nombre}'
+            })
         existente.asistio = True
         existente.hora = hora_actual
         existente.tipo = 'qr'
         existente.usuario_id = user_id
     else:
-        nueva = Asistencia(estudiante_id=estudiante.id, usuario_id=user_id, fecha=fecha_dt, hora=hora_actual, asistio=True, tipo='qr', turno=turno)
+        nueva = Asistencia(
+            estudiante_id=estudiante.id, 
+            usuario_id=user_id, 
+            fecha=fecha_dt, 
+            hora=hora_actual, 
+            asistio=True, 
+            tipo='qr', 
+            turno=turno
+        )
         db.session.add(nueva)
     
     db.session.commit()
-    return jsonify({'success': True, 'message': f'Asistencia de {estudiante.nombre} registrada.', 'codigo_id': estudiante.codigo_id})
+    return jsonify({'status': 'success', 'message': f'Asistencia de {estudiante.nombre} registrada.', 'codigo_id': estudiante.codigo_id, 'student_name': f'{estudiante.apellido} {estudiante.nombre}'})
 
 # Consultar asistencias por grado y fecha
 @app.route('/api/asistencia/por-grado', methods=['GET'])
@@ -362,6 +369,7 @@ def asistencia_por_grado():
 
 # --- MIGRACIÓN AUTOMÁTICA DE password_hash SI FALTA ---
 import sqlite3
+import os
 
 def ensure_password_hash_column():
     db_path = app.config['SQLALCHEMY_DATABASE_URI'].replace('sqlite:///','')
@@ -623,6 +631,50 @@ def api_estudiantes():
     ]
     return jsonify({'success': True, 'estudiantes': lista})
 
+# --- ENDPOINT: Generar imagen de QR para un código de estudiante ---
+@app.route('/api/qr-code')
+def generate_qr_code_image():
+    codigo_id = request.args.get('data')
+    # permite especificar tamaño opcional
+    size = request.args.get('size', type=int)  # ejemplo: ?size=600
+
+    if not codigo_id:
+        return "Parámetro 'data' requerido", 400
+
+    # mapear size a box_size y version opcional
+    # size = pixel total aproximado; calculamos box_size basado en version
+    try:
+        box_size = 10
+        border = 2
+        if size:
+            # aproximación: qr image size ~ (module_count * box_size) + 2*border
+            # elegimos box_size con heurística para alcanzar el size pedido
+            # usar versión automática (fit=True) por simplicidad; ajustamos box_size
+            box_size = max(4, int(size / 30))  # heurística simple
+    except Exception:
+        box_size = 10
+
+    qr = qrcode.QRCode(
+        version=None,  # fit=True se adaptará
+        error_correction=qrcode.constants.ERROR_CORRECT_M,
+        box_size=box_size,
+        border=border,
+    )
+    qr.add_data(codigo_id)
+    qr.make(fit=True)
+    img = qr.make_image(fill_color="black", back_color="white")
+
+    img_io = io.BytesIO()
+    img.save(img_io, 'PNG')
+    img_io.seek(0)
+
+    # IMPORTANT: permitir CORS en la respuesta de la imagen para que html2canvas pueda usar crossOrigin
+    headers = {
+        'Access-Control-Allow-Origin': '*',
+        'Cache-Control': 'no-cache, no-store, must-revalidate'
+    }
+    return Response(img_io.getvalue(), mimetype='image/png', headers=headers)
+
 # --- ENDPOINT: Eliminar un estudiante ---
 @app.route('/api/estudiantes/<int:estudiante_id>', methods=['DELETE'])
 def eliminar_estudiante(estudiante_id):
@@ -690,102 +742,13 @@ def inicializar_base_de_datos():
         ensure_password_hash_column()
         ensure_asistencia_hora_column()
 
-# --- INICIO: Transmisión de video con OpenCV ---
-def gen_frames(fecha_str=None, turno_str=None, user_id=1):
-    """Generador de frames de la cámara que también detecta QR."""
-    try:
-        fecha_dt = datetime.strptime(fecha_str, '%Y-%m-%d').date() if fecha_str else date.today()
-    except (ValueError, TypeError):
-        fecha_dt = date.today()
-
-    turno = turno_str if turno_str in ['manana', 'tarde'] else ('manana' if datetime.now().time() < time_obj(12, 0) else 'tarde')
-
-    print(f"Iniciando escaneo para Fecha: {fecha_dt}, Turno: {turno}")
-
-    # --- CORRECCIÓN: Inicializar el detector de QR de OpenCV ---
-    detector = cv2.QRCodeDetector()
-
-    cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
-    last_scan_time = 0
-    scan_interval = 0.5  # 0.5 segundos para escaneo rápido y continuo
-    last_code = None
-
-    if not cap.isOpened():
-        print("Error: No se pudo abrir la cámara.")
-        return
-
-    try:
-        while True:
-            success, frame = cap.read()
-            if not success:
-                continue  # Si falla un frame, intenta el siguiente sin romper el bucle
-
-            frame = cv2.resize(frame, (800, 500))
-            
-            # --- REEMPLAZO DE PYZBAR POR OPENCV ---
-            data, vertices, _ = detector.detectAndDecode(frame)
-
-            if vertices is not None and data:
-                # Dibujar el contorno del QR detectado
-                vertices = vertices[0] # Obtener las coordenadas del primer QR
-                cv2.polylines(frame, [vertices.astype(int)], True, (0, 255, 0), 2)
-                current_time = time.time()
-                if data != last_code or (current_time - last_scan_time) > scan_interval:
-                    last_code = data
-                    last_scan_time = current_time
-                    with app.app_context():
-                        estudiante = Estudiante.query.filter_by(codigo_id=data).first()
-                        hora_actual_time = datetime.now().time()
-                        if not estudiante:
-                            SCAN_EVENTS.append({'status': 'not_found', 'codigo_id': data})
-                        else:
-                            existente = Asistencia.query.filter_by(estudiante_id=estudiante.id, fecha=fecha_dt, turno=turno).first()
-                            if existente and existente.asistio:
-                                SCAN_EVENTS.append({'status': 'duplicate', 'student_name': f'{estudiante.apellido} {estudiante.nombre}', 'codigo_id': estudiante.codigo_id})
-                            else:
-                                if not existente:
-                                    nueva = Asistencia(estudiante_id=estudiante.id, usuario_id=user_id, fecha=fecha_dt, hora=hora_actual_time, asistio=True, tipo='qr', turno=turno)
-                                    db.session.add(nueva)
-                                else:
-                                    existente.asistio = True
-                                    existente.hora = hora_actual_time
-                                    existente.tipo = 'qr'
-                                    existente.usuario_id = user_id
-                                db.session.commit()
-                                SCAN_EVENTS.append({'status': 'success', 'student_name': f'{estudiante.apellido} {estudiante.nombre}', 'codigo_id': estudiante.codigo_id})
-
-            ret, buffer = cv2.imencode('.jpg', frame)
-            frame = buffer.tobytes()
-            yield (b'--frame\r\n'
-                   b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
-    finally:
-        cap.release()
-
-@app.route('/video_feed')
-@require_auth
-def video_feed():
-    """Ruta que sirve el stream de video."""
-    fecha = request.args.get('fecha')
-    turno = request.args.get('turno')
-    user_id = session.get('user_id', 1)
-    return Response(gen_frames(fecha_str=fecha, turno_str=turno, user_id=user_id), mimetype='multipart/x-mixed-replace; boundary=frame')
-
-# --- ENDPOINT para que el frontend consulte los eventos de escaneo ---
-@app.route('/api/scan_events')
-@require_auth
-def get_scan_events():
-    """Devuelve y limpia la lista de eventos de escaneo."""
-    global SCAN_EVENTS
-    events = list(SCAN_EVENTS) # Copiar la lista
-    SCAN_EVENTS.clear() # Limpiar la lista original
-    return jsonify({'events': events})
+# 1. Inicializar y migrar la base de datos ANTES de iniciar el servidor
+# Esto se ejecuta tanto en local como en el servidor de producción (Render)
+# para asegurar que la base de datos y las tablas estén siempre creadas.
+inicializar_base_de_datos()
 
 if __name__ == '__main__':
-    # 1. Inicializar y migrar la base de datos ANTES de iniciar el servidor
-    inicializar_base_de_datos()
-    
-    # 2. Iniciar el servidor Flask
+    # 2. Iniciar el servidor Flask de desarrollo
     # Este bloque solo se ejecuta cuando corres "python app.py" en tu computadora.
     # El servidor en la nube (como Render o Heroku) ignorará esto y usará el comando del Procfile (Gunicorn).
-    # El puerto 5000 es estándar, pero los servicios en la nube pueden asignarte uno diferente automáticamente.
     app.run(host='0.0.0.0', port=5000, debug=True)

@@ -352,7 +352,8 @@
             previewDiv.innerHTML = ''; // Limpiar vista previa
 
             estudiantesSeleccionados.forEach(est => {
-                const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(est.codigo_id)}`;
+                // CORRECCIÓN: Usar el endpoint local para generar el QR, asegurando consistencia.
+                const qrImageUrl = `/api/qr-code?data=${encodeURIComponent(est.codigo_id)}&size=600`;
                 const card = document.createElement('div');
                 const fotoUrl = fotosEstudiantes[est.id] || 'https://via.placeholder.com/120x120.png?text=Foto';
                 card.className = 'qr-card';
@@ -371,68 +372,147 @@
 
         document.getElementById('verBtn').addEventListener('click', () => document.getElementById('generarBtn').click());
 
-        document.getElementById('descargarBtn').addEventListener('click', async function() {
-            const previewDiv = document.getElementById('qrPreview');
-            if (previewDiv.children.length === 0) {
-                alert('Primero debes generar los QR para poder descargarlos.');
+document.getElementById('descargarBtn').addEventListener('click', async function() {
+    const previewDiv = document.getElementById('qrPreview');
+    if (previewDiv.children.length === 0) {
+        alert('Primero debes generar los QR para poder descargarlos.');
+        return;
+    }
+
+    // Tomar clones de las cards generadas (las miniaturas)
+    const originalCards = Array.from(previewDiv.children);
+
+    // Crear contenedor temporal visible para html2pdf (pero fuera de pantalla)
+    const pdfContainer = document.createElement('div');
+    pdfContainer.id = 'pdfContainerTemp';
+    pdfContainer.style.position = 'fixed';
+    pdfContainer.style.left = '-9999px'; // fuera de la vista, pero renderizable
+    pdfContainer.style.top = '0';
+    pdfContainer.style.width = '210mm'; // tamaño A4 exacto para html2pdf
+    pdfContainer.style.boxSizing = 'border-box';
+    document.body.appendChild(pdfContainer);
+
+    // Helper: crea elemento img con crossOrigin y espera cargue
+    function loadImageWithCORS(src) {
+        return new Promise((resolve, reject) => {
+            if (!src) { // Si no hay src, rechazar de inmediato.
+                return reject(new Error('Image src is missing.'));
+            }
+            // Si es dataURL (base64) no hace falta crossOrigin
+            if (src.startsWith('data:') || src.startsWith('blob:')) {
+                const img = new Image();
+                img.onload = () => resolve(img);
+                img.onerror = (e) => reject(new Error(`Failed to load data/blob URL: ${e.type}`));
+                img.src = src;
                 return;
             }
-
-            // --- Nueva lógica para preparar el contenido para el PDF ---
-            const originalCards = Array.from(previewDiv.children);
-            const pdfContainer = document.createElement('div');
-            pdfContainer.style.position = 'absolute';
-            pdfContainer.style.opacity = '0'; // Hacerlo invisible pero renderizable
-            pdfContainer.style.zIndex = '-1'; // Ponerlo detrás de todo
-            pdfContainer.style.left = '0';
-            document.body.appendChild(pdfContainer);
-            
-            let page;
-            originalCards.forEach((card, index) => {
-                if (index % 8 === 0) { // Cada 8 carnets, crea una nueva página
-                    page = document.createElement('div');
-                    page.className = 'pdf-page';
-                    pdfContainer.appendChild(page);
-                }
-                const cardClone = card.cloneNode(true);
-                page.appendChild(cardClone);
-            });
-
-            // --- Lógica definitiva para asegurar la carga de imágenes ---
-            const images = pdfContainer.querySelectorAll('img');
-            const imagePromises = [];
-
-            images.forEach(img => {
-                if (img.src && !img.complete) {
-                    const promise = new Promise((resolve, reject) => {
-                        img.onload = resolve;
-                        img.onerror = (err) => {
-                            console.error(`Error cargando imagen: ${img.src}`, err);
-                            reject(err);
-                        };
-                    });
-                    imagePromises.push(promise);
-                }
-            });
-
-            try {
-                await Promise.all(imagePromises);
-                // Todas las imágenes están cargadas, ahora generamos el PDF
-                html2pdf().set({
-                    margin: 10,
-                    filename: `carnets_qr_${document.getElementById('gradoSelect').value}.pdf`,
-                    image: { type: 'jpeg', quality: 0.98 },
-                    html2canvas: { scale: 2, useCORS: true },
-                    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-                }).from(pdfContainer).save().then(() => {
-                    document.body.removeChild(pdfContainer); // Limpiar el contenedor temporal
-                });
-            } catch (error) {
-                console.error("Error al cargar imágenes para el PDF:", error);
-                alert("Hubo un error al cargar las imágenes para el PDF. Inténtalo de nuevo.");
-                document.body.removeChild(pdfContainer); // Limpiar también en caso de error
-            }
+            const img = new Image();
+            img.crossOrigin = 'anonymous';
+            img.onload = () => resolve(img);
+            img.onerror = (e) => reject(new Error(`Failed to load image from ${src}: ${e.type}`));
+            // Forzar recarga para evitar problemas de caché con CORS
+            img.src = src + (src.includes('?') ? '&' : '?') + 't=' + Date.now();
         });
+    }
+
+    // Preparamos un array de promesas por cada imagen (foto + qr) de todas las cards
+    const allImageLoadPromises = [];
+
+    // Construir páginas: cada 8 cards por página (2 cols x 4 rows)
+    let page = null;
+    originalCards.forEach((card, i) => {
+        if (i % 8 === 0) {
+            page = document.createElement('div');
+            page.className = 'pdf-page';
+            pdfContainer.appendChild(page);
+        }
+        // clonar la card pero reemplazar src de imágenes por los Image objetos cargados
+        const cardClone = card.cloneNode(true);
+
+        // buscar imgs dentro de la cardClone
+        const imgs = Array.from(cardClone.querySelectorAll('img'));
+        imgs.forEach((imgEl) => {
+            const src = imgEl.getAttribute('src') || '';
+            
+            // Creamos un div como placeholder. Usar un div es más estable que un <img> vacío.
+            const placeholder = document.createElement('div');
+            placeholder.style.width = imgEl.style.width || '80px'; // Un tamaño por defecto
+            placeholder.style.height = imgEl.style.height || '80px';
+            placeholder.style.display = 'inline-block';
+
+            imgEl.parentNode.replaceChild(placeholder, imgEl);
+
+            // iniciar carga real (con CORS)
+            const p = loadImageWithCORS(src)
+                .then(loadedImg => {
+                    // **LA CORRECCIÓN CLAVE ESTÁ AQUÍ**
+                    // Copiamos los estilos y clases del elemento de imagen original
+                    // al nuevo elemento de imagen que hemos cargado.
+                    // Esto asegura que la imagen en el PDF tenga el tamaño y estilo correctos.
+                    loadedImg.className = imgEl.className; // Copia clases como 'student-photo' o 'qr-image'
+                    loadedImg.alt = imgEl.alt;
+                    
+                    // Reemplazar el placeholder por la imagen real ya cargada y estilizada.
+                    if (placeholder.parentNode) {
+                        placeholder.parentNode.replaceChild(loadedImg, placeholder);
+                    }
+                })
+                .catch(err => {
+                    console.error('Error cargando imagen para PDF:', src, err);
+                    // si falla, dejar un cuadro con texto de error
+                    const fallback = document.createElement('div');
+                    fallback.textContent = 'Imagen no disponible';
+                    fallback.style.width = placeholder.style.width;
+                    fallback.style.height = placeholder.style.height;
+                    fallback.style.display = 'flex';
+                    fallback.style.alignItems = 'center';
+                    fallback.style.justifyContent = 'center';
+                    fallback.style.border = '1px dashed #ccc';
+                    fallback.style.fontSize = '10px';
+                    fallback.style.color = '#666';
+                    if (placeholder.parentNode) {
+                        placeholder.parentNode.replaceChild(fallback, placeholder);
+                    }
+                });
+
+            allImageLoadPromises.push(p);
+        });
+
+        page.appendChild(cardClone);
+    });
+
+    // Esperar a que todas las imágenes estén listas
+    try {
+        await Promise.all(allImageLoadPromises);
+    } catch (e) {
+        // Los errores individuales ya se manejan en el .catch() de cada promesa.
+        // Promise.all se rechaza si CUALQUIER promesa se rechaza.
+        // Aquí simplemente registramos que el proceso general tuvo problemas, pero continuamos.
+        console.warn('Algunas imágenes no se cargaron, pero se intentará generar el PDF de todas formas.', e);
+    }
+
+    // Pequeña demora para asegurar que el DOM se actualice visualmente antes de la captura
+    await new Promise(resolve => setTimeout(resolve, 100));
+
+    // Todo cargado o con fallback: generar el PDF
+    const gradoNom = document.getElementById('gradoSelect').value || 'grupo';
+    try {
+        await html2pdf().set({
+            margin: 6, // mm
+            filename: `carnets_qr_${gradoNom}.pdf`,
+            image: { type: 'jpeg', quality: 0.98 },
+            html2canvas: { scale: 2, useCORS: true, allowTaint: false, logging: true }, // Habilitar logging para depurar
+            jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+        }).from(pdfContainer).save();
+    } catch (pdfError) {
+        console.error("Error generando el PDF con html2pdf:", pdfError);
+        alert("Ocurrió un error final al generar el PDF. Revisa la consola para más detalles.");
+    }
+
+
+    // limpiar
+    document.body.removeChild(pdfContainer);
+});
     </script>
 </body>
 </html>

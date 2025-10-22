@@ -247,14 +247,23 @@
         <div class="asistencia-actions">
             <button class="buscar-btn" id="guardarReporteBtn"><i class="fas fa-save"></i> Guardar a Reporte</button>
         </div>
-        <!-- Modal de QR a pantalla completa (usando la estructura de modal.css) -->
-        <div id="qrModal" class="modal-fullscreen">
+        <!-- Modal de QR a pantalla completa (reemplazado para getUserMedia + jsQR) -->
+        <div id="qrModal" class="modal-fullscreen" style="display:none; align-items:center; justify-content:center;">
             <button id="cerrarQR" class="close-btn-fullscreen" style="position:absolute;top:20px;right:40px;z-index:1010;padding:16px 32px;font-size:1.3rem;background:#4e54c8;color:#fff;border:none;border-radius:8px;box-shadow:0 2px 12px #43e97b;cursor:pointer;">Cerrar cámara</button>
-            <img id="qrVideo" src="" alt="Cargando cámara..." style="width: 90%; height: 90%; object-fit: contain; background-color: #000; border-radius: 10px; box-shadow: 0 0 24px #43e97b;">
+
+            <!-- Video nativo del navegador (sustituye <img src="/video_feed">) -->
+            <video id="qrVideo" autoplay playsinline style="width: 90%; height: 90%; object-fit: contain; background-color: #000; border-radius: 10px; box-shadow: 0 0 24px #43e97b;"></video>
+
+            <!-- Canvas para procesar la imagen de la cámara (oculto) -->
+            <canvas id="qrCanvasProcess" style="display:none"></canvas>
+            <!-- Canvas para dibujar el borde sobre el video (visible) -->
+            <canvas id="qrCanvasOverlay" style="position:absolute; left:0; top:0; pointer-events:none;"></canvas>
         </div>
     </div>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <!-- Librería jsQR para leer códigos QR en el navegador -->
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
     <script src="/static/asistencia.js"></script>
     <!-- Elemento de audio para el sonido de escaneo -->
     <audio id="scan-sound" src="https://cdn.pixabay.com/download/audio/2021/08/04/audio_bb630cc098.mp3" preload="auto"></audio>
