@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Generar QR - Carnets</title>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body {
+            background: linear-gradient(135deg, #e0eafc 0%, #cfdef3 100%);
+            min-height: 100vh;
+            margin: 0;
+            font-family: 'Montserrat', Arial, sans-serif;
+        }
+        .qr-box {
+            background: #fff;
+            border-radius: 18px;
+            box-shadow: 0 8px 32px rgba(67,233,123,0.13);
+            max-width: 900px;
+            margin: 40px auto;
+            padding: 32px 32px 24px 32px;
+        }
+        .qr-title {
+            font-size: 3rem;
+            font-family: 'Playfair Display', serif;
+            font-weight: 900;
+            text-align: center;
+            margin-bottom: 18px;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            background: linear-gradient(90deg, #3b0066 0%, #1e40af 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            text-shadow: 0 2px 8px rgba(30,64,175,0.18), 0 1px 0 #fff;
+        }
+        .search-bar {
+            display: flex;
+            gap: 18px;
+            margin-bottom: 18px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .grado-select {
+            padding: 12px;
+            border-radius: 8px;
+            border: 2px solid #43e97b;
+            font-size: 1.1rem;
+            background: #f3fff7;
+        }
+        .search-btn {
+            background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            padding: 12px 24px;
+            font-size: 1.1rem;
+            font-weight: 700;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: background 0.2s;
+        }
+        .search-btn:hover {
+            background: linear-gradient(135deg, #38f9d7 0%, #43e97b 100%);
+        }
+        .estudiantes-list {
+            margin-top: 18px;
+        }
+        .estudiantes-list table {
+            width: 100%;
+            border-collapse: collapse;
+            background: #f8fafd;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        .estudiantes-list th, .estudiantes-list td {
+            padding: 10px 8px;
+            text-align: left;
+        }
+        .estudiantes-list th {
+            background: #38f9d7;
+            color: #fff;
+        }
+        .estudiantes-list tr:nth-child(even) {
+            background: #eafff5;
+        }
+        .select-all {
+            accent-color: #43e97b;
+        }
+        .action-bar {
+            margin-top: 18px;
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+        }
+        .gen-btn, .view-btn, .download-btn {
+            border: none;
+            border-radius: 8px;
+            padding: 12px 22px;
+            font-size: 1.1rem;
+            font-weight: 700;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: background 0.2s;
+        }
+        .gen-btn {
+            background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+            color: #fff;
+        }
+        .gen-btn:hover {
+            background: linear-gradient(135deg, #38f9d7 0%, #43e97b 100%);
+        }
+        .view-btn {
+            background: linear-gradient(135deg, #f7971e 0%, #ffd200 100%);
+            color: #fff;
+        }
+        .view-btn:hover {
+            background: linear-gradient(135deg, #ffd200 0%, #f7971e 100%);
+        }
+        .download-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #fff;
+        }
+        .download-btn:hover {
+            background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+        }
+        .qr-preview {
+            margin-top: 32px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 32px;
+            justify-content: center;
+        }
+        .qr-card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 16px rgba(67,233,123,0.13);
+            padding: 18px 18px 8px 18px;
+            text-align: center; /* min-width: 180px; */
+            width: 90mm; /* Ancho fijo para PDF */
+            height: 65mm; /* Alto fijo para PDF */
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            box-sizing: border-box;
+            overflow: hidden;
+        }
+        .card-content {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            width: 100%;
+            margin-bottom: 10px;
+        }
+        .card-content .student-photo {
+            width: 70px;
+            height: 70px;
+            object-fit: cover;
+            border-radius: 50%;
+            border: 2px solid #eee;
+        }
+        .card-content .qr-image {
+            width: 80px;
+            height: 80px;
+        }
+        .qr-card .name {
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: #38f9d7;
+            margin-bottom: 4px;
+            word-break: break-word; /* Evita que nombres largos rompan el layout */
+        }
+        .qr-card .grado {
+            font-size: 0.95rem;
+            color: #43e97b;
+        }
+
+        /* --- Estilos específicos para la generación del PDF --- */
+        .pdf-page {
+            width: 210mm;
+            height: 297mm;
+            padding: 10mm 5mm;
+            box-sizing: border-box;
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            grid-template-rows: repeat(4, 1fr);
+            gap: 5mm;
+            page-break-after: always; /* Salto de página para html2pdf */
+        }
+
+        .pdf-page .qr-card {
+            width: 100%;
+            height: 100%;
+            box-shadow: none;
+            border: 1px solid #eee;
+            margin: 0;
+        }
+
+        /* Estilo para la página de impresión */
+        @media print {
+            body * { visibility: hidden; }
+            #qrPreview, #qrPreview * { visibility: visible; }
+            #qrPreview { position: absolute; left: 0; top: 0; margin: 10px; }
+        }
+        @media (max-width: 900px) {
+            .qr-box { padding: 16px 2vw; }
+        }
+    </style>
+</head>
+<body>
+    <div class="qr-box">
+        <div class="qr-title"><i class="fas fa-qrcode"></i> Generar Carnet QR</div>
+        <div class="search-bar">
+            <select class="grado-select" id="gradoSelect">
+                <option value="">Selecciona el grado</option>
+                <option value="Primero">Primero</option>
+                <option value="Segundo">Segundo</option>
+                <option value="Tercero">Tercero</option>
+                <option value="Cuarto">Cuarto</option>
+                <option value="Quinto">Quinto</option>
+                <option value="Primaria_001">Primaria_001</option>
+                <option value="Primaria_002">Primaria_002</option>
+                <option value="Primaria_Sexto">Primaria_Sexto</option>
+                <option value="Preuniversitario_M001">Preuniversitario_M001</option>
+                <option value="Preuniversitario_T002">Preuniversitario_T002</option>
+            </select>
+            <button class="search-btn" id="buscarBtn"><i class="fas fa-search"></i> Buscar</button>
+        </div>
+        <div class="estudiantes-list" id="estudiantesList" style="display:none;">
+            <table>
+                <thead>
+                    <tr>
+                        <th><input type="checkbox" id="selectAll" class="select-all"></th>
+                        <th>Nombres</th>
+                        <th>Apellidos</th>
+                        <th>DNI</th>
+                        <th>Grado</th>
+                    </tr>
+                </thead>
+                <tbody id="tablaEstudiantes">
+                    <!-- Estudiantes -->
+                </tbody>
+            </table>
+        </div>
+        <div class="action-bar" id="actionBar" style="display:none;">
+            <button class="gen-btn" id="generarBtn"><i class="fas fa-qrcode"></i> Generar QR</button>
+            <button class="view-btn" id="verBtn"><i class="fas fa-eye"></i> Ver QR</button>
+            <button class="download-btn" id="descargarBtn"><i class="fas fa-download"></i> Descargar</button>
+            <label class="upload-photo-btn" style="background: linear-gradient(135deg, #1e40af 0%, #f06292 100%); color: #fff; border-radius: 8px; padding: 12px 22px; font-size: 1.1rem; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 8px; margin-left: 8px;">
+                <i class="fas fa-upload"></i> Subir Foto
+                <input type="file" id="fotoInput" accept="image/*" style="display:none;">
+            </label>
+        </div>
+        <div class="qr-preview" id="qrPreview"></div>
+    </div>
+    <!-- Librería para generar PDF desde HTML -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js" integrity="sha512-GsLlZN/3F2ErC5ifS5QtgpiJtWd43JWSuIgh7mbzZ8zBps+dvLusV+eNQATqgA/HdeKFVgA5v3S/cIrLF7QnIg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script>
+        // Mapeo de fotos por estudiante
+        let fotosEstudiantes = {};
+        let estudiantesFiltrados = [];
+
+        // Función para obtener estudiantes por grado
+        function fetchEstudiantes(grado) {
+            fetch(`/api/estudiantes${grado ? '?grado=' + encodeURIComponent(grado) : ''}`)
+                .then(res => res.json())
+                .then(data => {
+                    if (!data.success) {
+                        alert('No se pudo obtener la lista de estudiantes.');
+                        return;
+                    }
+                    estudiantesFiltrados = data.estudiantes || [];
+                    const tbody = document.getElementById('tablaEstudiantes');
+                    tbody.innerHTML = '';
+                    const estudiantesListDiv = document.getElementById('estudiantesList');
+                    const actionBarDiv = document.getElementById('actionBar');
+                    if (estudiantesFiltrados.length === 0) {
+                        estudiantesListDiv.style.display = 'none';
+                        actionBarDiv.style.display = 'none';
+                    } else {
+                        estudiantesFiltrados.forEach(est => {
+                            const tr = document.createElement('tr');
+                            tr.innerHTML = `<td><input type='checkbox' class='select-est' value='${est.id}'></td><td>${est.nombres}</td><td>${est.apellidos}</td><td>${est.dni || ''}</td><td>${est.grado}</td>`;
+                            tbody.appendChild(tr);
+                        });
+                        estudiantesListDiv.style.display = 'block';
+                        actionBarDiv.style.display = 'flex';
+                    }
+                    document.getElementById('qrPreview').innerHTML = '';
+                    document.getElementById('selectAll').checked = false;
+                });
+        }
+
+        document.getElementById('buscarBtn').onclick = function() {
+            const grado = document.getElementById('gradoSelect').value;
+            fetchEstudiantes(grado);
+        };
+
+        document.getElementById('gradoSelect').addEventListener('change', function() {
+            fetchEstudiantes(this.value);
+        });
+
+        document.getElementById('selectAll').onclick = function() {
+            const checked = this.checked;
+            document.querySelectorAll('.select-est').forEach(cb => { cb.checked = checked; });
+        };
+
+        // --- Lógica para subir foto ---
+        document.getElementById('fotoInput').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const seleccionados = Array.from(document.querySelectorAll('.select-est:checked'));
+            if (seleccionados.length !== 1) {
+                alert('Por favor, selecciona un único estudiante para asignarle una foto.');
+                e.target.value = ''; // Limpiar input
+                return;
+            }
+            const estudianteId = seleccionados[0].value;
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                fotosEstudiantes[estudianteId] = event.target.result;
+                alert('Foto asignada correctamente. La vista previa se ha actualizado.');
+
+                // Actualizar la foto en la vista previa si el carnet ya está generado
+                const cardExistente = document.querySelector(`.qr-card[data-id='${estudianteId}']`);
+                if (cardExistente) {
+                    const fotoImg = cardExistente.querySelector('.student-photo');
+                    if (fotoImg) {
+                        fotoImg.src = event.target.result;
+                    }
+                }
+                e.target.value = ''; // Limpiar input para poder subir otra foto
+            };
+            reader.readAsDataURL(file);
+        });
+
+        // --- Lógica para generar y descargar QR ---
+        document.getElementById('generarBtn').addEventListener('click', function() {
+            const seleccionadosIds = Array.from(document.querySelectorAll('.select-est:checked')).map(cb => parseInt(cb.value));
+            if (seleccionadosIds.length === 0) {
+                alert('Por favor, selecciona al menos un estudiante.');
+                return;
+            }
+            const estudiantesSeleccionados = estudiantesFiltrados.filter(est => seleccionadosIds.includes(est.id));
+            const previewDiv = document.getElementById('qrPreview');
+            previewDiv.innerHTML = ''; // Limpiar vista previa
+
+            estudiantesSeleccionados.forEach(est => {
+                // CORRECCIÓN: Usar el endpoint local para generar el QR, asegurando consistencia.
+                const qrImageUrl = `/api/qr-code?data=${encodeURIComponent(est.codigo_id)}&size=600`;
+                const card = document.createElement('div');
+                const fotoUrl = fotosEstudiantes[est.id] || 'https://via.placeholder.com/120x120.png?text=Foto';
+                card.className = 'qr-card';
+                card.dataset.id = est.id;
+                card.innerHTML = `
+                    <div class="card-content">
+                        <img src="${fotoUrl}" alt="Foto" class="student-photo">
+                        <img src="${qrImageUrl}" alt="QR" class="qr-image" crossorigin="anonymous">
+                    </div>
+                    <div class="name">${est.apellidos}, ${est.nombres}</div>
+                    <div class="grado">${est.grado}</div>
+                `;
+                previewDiv.appendChild(card);
+            });
+        });
+
+        document.getElementById('verBtn').addEventListener('click', () => document.getElementById('generarBtn').click());
+
+document.getElementById('descargarBtn').addEventListener('click', async function() {
+    const previewDiv = document.getElementById('qrPreview');
+    if (previewDiv.children.length === 0) {
+        alert('Primero debes generar los QR para poder descargarlos.');
+        return;
+    }
+
+    // Tomar clones de las cards generadas (las miniaturas)
+    const originalCards = Array.from(previewDiv.children);
+
+    // Crear contenedor temporal visible para html2pdf (pero fuera de pantalla)
+    const pdfContainer = document.createElement('div');
+    pdfContainer.id = 'pdfContainerTemp';
+    pdfContainer.style.position = 'fixed';
+    pdfContainer.style.left = '-9999px'; // fuera de la vista, pero renderizable
+    pdfContainer.style.top = '0';
+    pdfContainer.style.width = '210mm'; // tamaño A4 exacto para html2pdf
+    pdfContainer.style.boxSizing = 'border-box';
+    document.body.appendChild(pdfContainer);
+
+    // Helper: crea elemento img con crossOrigin y espera cargue
+    function loadImageWithCORS(src) {
+        return new Promise((resolve, reject) => {
+            if (!src) { // Si no hay src, rechazar de inmediato.
+                return reject(new Error('Image src is missing.'));
+            }
+            // Si es dataURL (base64) no hace falta crossOrigin
+            if (src.startsWith('data:') || src.startsWith('blob:')) {
+                const img = new Image();
+                img.onload = () => resolve(img);
+                img.onerror = (e) => reject(new Error(`Failed to load data/blob URL: ${e.type}`));
+                img.src = src;
+                return;
+            }
+            const img = new Image();
+            img.crossOrigin = 'anonymous';
+            img.onload = () => resolve(img);
+            img.onerror = (e) => reject(new Error(`Failed to load image from ${src}: ${e.type}`));
+            // Forzar recarga para evitar problemas de caché con CORS
+            img.src = src + (src.includes('?') ? '&' : '?') + 't=' + Date.now();
+        });
+    }
+
+    // Preparamos un array de promesas por cada imagen (foto + qr) de todas las cards
+    const allImageLoadPromises = [];
+
+    // Construir páginas: cada 8 cards por página (2 cols x 4 rows)
+    let page = null;
+    originalCards.forEach((card, i) => {
+        if (i % 8 === 0) {
+            page = document.createElement('div');
+            page.className = 'pdf-page';
+            pdfContainer.appendChild(page);
+        }
+        // clonar la card pero reemplazar src de imágenes por los Image objetos cargados
+        const cardClone = card.cloneNode(true);
+
+        // buscar imgs dentro de la cardClone
+        const imgs = Array.from(cardClone.querySelectorAll('img'));
+        imgs.forEach((imgEl) => {
+            const src = imgEl.getAttribute('src') || '';
+            
+            // Creamos un div como placeholder. Usar un div es más estable que un <img> vacío.
+            const placeholder = document.createElement('div');
+            placeholder.style.width = imgEl.style.width || '80px'; // Un tamaño por defecto
+            placeholder.style.height = imgEl.style.height || '80px';
+            placeholder.style.display = 'inline-block';
+
+            imgEl.parentNode.replaceChild(placeholder, imgEl);
+
+            // iniciar carga real (con CORS)
+            const p = loadImageWithCORS(src)
+                .then(loadedImg => {
+                    // **LA CORRECCIÓN CLAVE ESTÁ AQUÍ**
+                    // Copiamos los estilos y clases del elemento de imagen original
+                    // al nuevo elemento de imagen que hemos cargado.
+                    // Esto asegura que la imagen en el PDF tenga el tamaño y estilo correctos.
+                    loadedImg.className = imgEl.className; // Copia clases como 'student-photo' o 'qr-image'
+                    loadedImg.alt = imgEl.alt;
+                    
+                    // Reemplazar el placeholder por la imagen real ya cargada y estilizada.
+                    if (placeholder.parentNode) {
+                        placeholder.parentNode.replaceChild(loadedImg, placeholder);
+                    }
+                })
+                .catch(err => {
+                    console.error('Error cargando imagen para PDF:', src, err);
+                    // si falla, dejar un cuadro con texto de error
+                    const fallback = document.createElement('div');
+                    fallback.textContent = 'Imagen no disponible';
+                    fallback.style.width = placeholder.style.width;
+                    fallback.style.height = placeholder.style.height;
+                    fallback.style.display = 'flex';
+                    fallback.style.alignItems = 'center';
+                    fallback.style.justifyContent = 'center';
+                    fallback.style.border = '1px dashed #ccc';
+                    fallback.style.fontSize = '10px';
+                    fallback.style.color = '#666';
+                    if (placeholder.parentNode) {
+                        placeholder.parentNode.replaceChild(fallback, placeholder);
+                    }
+                });
+
+            allImageLoadPromises.push(p);
+        });
+
+        page.appendChild(cardClone);
+    });
+
+    // Esperar a que todas las imágenes estén listas
+    try {
+        await Promise.all(allImageLoadPromises);
+    } catch (e) {
+        // Los errores individuales ya se manejan en el .catch() de cada promesa.
+        // Promise.all se rechaza si CUALQUIER promesa se rechaza.
+        // Aquí simplemente registramos que el proceso general tuvo problemas, pero continuamos.
+        console.warn('Algunas imágenes no se cargaron, pero se intentará generar el PDF de todas formas.', e);
+    }
+
+    // Pequeña demora para asegurar que el DOM se actualice visualmente antes de la captura
+    await new Promise(resolve => setTimeout(resolve, 100));
+
+    // Todo cargado o con fallback: generar el PDF
+    const gradoNom = document.getElementById('gradoSelect').value || 'grupo';
+    try {
+        await html2pdf().set({
+            margin: 6, // mm
+            filename: `carnets_qr_${gradoNom}.pdf`,
+            image: { type: 'jpeg', quality: 0.98 },
+            html2canvas: { scale: 2, useCORS: true, allowTaint: false, logging: true }, // Habilitar logging para depurar
+            jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+        }).from(pdfContainer).save();
+    } catch (pdfError) {
+        console.error("Error generando el PDF con html2pdf:", pdfError);
+        alert("Ocurrió un error final al generar el PDF. Revisa la consola para más detalles.");
+    }
+
+
+    // limpiar
+    document.body.removeChild(pdfContainer);
+});
+    </script>
+</body>
+</html>

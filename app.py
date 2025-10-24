@@ -51,7 +51,7 @@ class Estudiante(db.Model):
     apellido = db.Column(db.String(100), nullable=False)
     dni = db.Column(db.String(8))
     fecha_nacimiento = db.Column(db.Date)
-    grado = db.Column(db.String(10), nullable=False)
+    grado = db.Column(db.String(50), nullable=False)
     seccion = db.Column(db.String(10), nullable=False)
     qr_code = db.Column(db.Text)
     activo = db.Column(db.Boolean, default=True)

@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lista de Asistencia</title>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body {
+            background: linear-gradient(135deg, #e0eafc 0%, #cfdef3 100%);
+            min-height: 100vh;
+            margin: 0;
+            font-family: 'Montserrat', Arial, sans-serif;
+        }
+        .asistencia-box {
+            background: #fff;
+            border-radius: 18px;
+            box-shadow: 0 8px 32px rgba(67,233,123,0.13);
+            max-width: 1100px;
+            margin: 40px auto;
+            padding: 32px 32px 24px 32px;
+        }
+        .asistencia-title {
+            font-size: 3rem;
+            font-family: 'Playfair Display', serif;
+            font-weight: 900;
+            text-align: center;
+            margin-bottom: 18px;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            background: linear-gradient(90deg, #3b0066 0%, #1e40af 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            text-shadow: 0 2px 8px rgba(30,64,175,0.18), 0 1px 0 #fff;
+        }
+        .asistencia-controls {
+            display: flex;
+            gap: 18px;
+            margin-bottom: 18px;
+            align-items: center;
+            flex-wrap: wrap;
+            justify-content: space-between;
+        }
+        .grado-select, .fecha-select {
+            padding: 12px;
+            border-radius: 8px;
+            border: 2px solid #4e54c8;
+            font-size: 1.1rem;
+            background: #f3f6fd;
+        }
+        .buscar-btn {
+            background: linear-gradient(135deg, #4e54c8 0%, #8f94fb 100%);
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            padding: 12px 24px;
+            font-size: 1.1rem;
+            font-weight: 700;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: background 0.2s;
+        }
+        .buscar-btn:hover {
+            background: linear-gradient(135deg, #8f94fb 0%, #4e54c8 100%);
+        }
+        .qr-btn {
+            background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            padding: 12px 24px;
+            font-size: 1.1rem;
+            font-weight: 700;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: background 0.2s;
+        }
+        .qr-btn:hover {
+            background: linear-gradient(135deg, #38f9d7 0%, #43e97b 100%);
+        }
+        .asistencia-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: #f8fafd;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        .asistencia-table th, .asistencia-table td {
+            padding: 10px 8px;
+            text-align: left;
+        }
+        .asistencia-table th {
+            background: #4e54c8;
+            color: #fff;
+        }
+        .asistencia-table tr:nth-child(even) {
+            background: #eaf0fb;
+        }
+        .asistencia-table td.check {
+            text-align: center;
+        }
+        .asistencia-table input[type=checkbox] {
+            accent-color: #43e97b;
+            width: 18px;
+            height: 18px;
+        }
+        .asistencia-table .asistio-label {
+            font-weight: 700;
+            color: #43e97b;
+            margin-left: 8px;
+        }
+        .asistencia-table .noasistio-label {
+            font-weight: 700;
+            color: #c8c8c8;
+            margin-left: 8px;
+        }
+        .asistencia-table .hora {
+            color: #4e54c8;
+            font-size: 0.98rem;
+        }
+        .asistencia-table .orden {
+            color: #8f94fb;
+            font-weight: 700;
+        }
+        .asistencia-table .dni {
+            color: #888;
+        }
+        .asistencia-table .nombre {
+            font-weight: 700;
+        }
+        .asistencia-table .apellido {
+            font-weight: 700;
+        }
+        .asistencia-table .qr-icon {
+            color: #43e97b;
+            font-size: 1.2rem;
+            margin-left: 6px;
+        }
+        .asistencia-table .scan-btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: #43e97b;
+            font-size: 1.2rem;
+        }
+        .asistencia-table .scan-btn:hover {
+            color: #4e54c8;
+        }
+        .asistencia-actions {
+            margin-top: 18px;
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+        }
+        .excel-btn, .pdf-btn {
+            border: none;
+            border-radius: 8px;
+            padding: 12px 22px;
+            font-size: 1.1rem;
+            font-weight: 700;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: background 0.2s;
+        }
+        .excel-btn {
+            background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+            color: #fff;
+        }
+        .excel-btn:hover {
+            background: linear-gradient(135deg, #38f9d7 0%, #43e97b 100%);
+        }
+        .pdf-btn {
+            background: linear-gradient(135deg, #f7971e 0%, #ffd200 100%);
+            color: #fff;
+        }
+        .pdf-btn:hover {
+            background: linear-gradient(135deg, #ffd200 0%, #f7971e 100%);
+        }
+        @media (max-width: 1100px) {
+            .asistencia-box { padding: 16px 2vw; }
+        }
+        /* Estilos para el toast */
+        #toastMsg {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(0,0,0,0.8);
+            color: #fff;
+            padding: 12px 18px;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            z-index: 2000;
+        }
+        #toastMsg.show {
+            display: flex;
+        }
+        #toastMsg.hide {
+            display: none;
+        }
+        .delete-btn {
+            color: #e74c3c;
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 1rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="asistencia-box">
+        <div class="asistencia-title"><i class="fas fa-list-check"></i> Lista de Asistencia</div>
+        <div class="asistencia-controls">
+            <div>
+                <select class="grado-select" id="gradoSelect">
+                    <option value="">Selecciona el grado</option>
+                    <option value="Primero">Primero</option>
+                    <option value="Segundo">Segundo</option>
+                    <option value="Tercero">Tercero</option>
+                    <option value="Cuarto">Cuarto</option>
+                    <option value="Quinto">Quinto</option>
+                    <option value="Primaria_001">Primaria_001</option>
+                    <option value="Primaria_002">Primaria_002</option>
+                    <option value="Primaria_Sexto">Primaria_Sexto</option>
+                    <option value="Preuniversitario_M001">Preuniversitario_M001</option>
+                    <option value="Preuniversitario_T002">Preuniversitario_T002</option>
+                </select>
+                <input type="date" class="fecha-select" id="fechaSelect" value="">
+                <select class="grado-select" id="turnoSelect">
+                    <option value="manana">Turno Mañana (7:00-8:30 AM)</option>
+                    <option value="tarde">Turno Tarde (3:00-4:00 PM)</option>
+                </select>
+                <button class="buscar-btn" id="buscarBtn"><i class="fas fa-search"></i> Buscar</button>
+            </div>
+            <button class="qr-btn" id="abrirQR"><i class="fas fa-qrcode"></i> Escanear QR</button>
+        </div>
+        <div id="asistenciaResumen" style="margin-bottom:12px;"></div>
+        <div id="asistenciaTableContainer"></div>
+        <div class="asistencia-actions">
+            <button class="buscar-btn" id="guardarReporteBtn"><i class="fas fa-save"></i> Guardar a Reporte</button>
+        </div>
+        <!-- Modal de QR a pantalla completa (reemplazado para getUserMedia + jsQR) -->
+        <div id="qrModal" class="modal-fullscreen" style="display:none; align-items:center; justify-content:center;">
+            <button id="cerrarQR" class="close-btn-fullscreen" style="position:absolute;top:20px;right:40px;z-index:1010;padding:16px 32px;font-size:1.3rem;background:#4e54c8;color:#fff;border:none;border-radius:8px;box-shadow:0 2px 12px #43e97b;cursor:pointer;">Cerrar cámara</button>
+
+            <!-- Video nativo del navegador (sustituye <img src="/video_feed">) -->
+            <video id="qrVideo" autoplay playsinline style="width: 90%; height: 90%; object-fit: contain; background-color: #000; border-radius: 10px; box-shadow: 0 0 24px #43e97b;"></video>
+
+            <!-- Canvas para procesar la imagen de la cámara (oculto) -->
+            <canvas id="qrCanvasProcess" style="display:none"></canvas>
+            <!-- Canvas para dibujar el borde sobre el video (visible) -->
+            <canvas id="qrCanvasOverlay" style="position:absolute; left:0; top:0; pointer-events:none;"></canvas>
+        </div>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <!-- Librería jsQR para leer códigos QR en el navegador -->
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+    <script src="/static/asistencia.js"></script>
+    <!-- Elemento de audio para el sonido de escaneo -->
+    <audio id="scan-sound" src="https://cdn.pixabay.com/download/audio/2021/08/04/audio_bb630cc098.mp3" preload="auto"></audio>
+    <audio id="error-sound" src="https://cdn.pixabay.com/download/audio/2022/03/10/audio_c3b14a8892.mp3" preload="auto"></audio>
+    <!-- Toast visual para mensajes -->
+    <div id="toastMsg" style="display:none;"></div>
+</body>
+</html>
