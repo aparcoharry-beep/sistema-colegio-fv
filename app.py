@@ -6,6 +6,10 @@ from datetime import datetime, date, timedelta, time as time_obj
 import qrcode
 import io
 import base64
+from docx import Document
+from docx.shared import Inches, Pt
+from PIL import Image, ImageDraw, ImageFont
+import math
 import os
 from sqlalchemy.exc import IntegrityError
 import functools, time
@@ -674,6 +678,132 @@ def generate_qr_code_image():
         'Cache-Control': 'no-cache, no-store, must-revalidate'
     }
     return Response(img_io.getvalue(), mimetype='image/png', headers=headers)
+
+
+# --- ENDPOINT: Generar Word (server-side) ---
+@app.route('/api/generar-word', methods=['POST'])
+def api_generar_word():
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'message': 'No autenticado'}), 401
+
+    data = request.get_json() or {}
+    ids = data.get('ids', [])
+    photos = data.get('photos', {}) or {}
+
+    if not ids or not isinstance(ids, list):
+        return jsonify({'success': False, 'message': 'No se recibieron IDs de estudiantes.'}), 400
+
+    try:
+        doc = Document()
+
+        # Crear tabla con filas necesarias (2 columnas por fila)
+        rows = math.ceil(len(ids) / 2)
+        table = doc.add_table(rows=rows, cols=2)
+        table.autofit = False
+
+        idx = 0
+        for r in range(rows):
+            row = table.rows[r]
+            for c in range(2):
+                if idx >= len(ids):
+                    # dejar celda vacía
+                    cell = row.cells[c]
+                    cell.text = ''
+                    continue
+
+                est_id = ids[idx]
+                estudiante = db.session.get(Estudiante, int(est_id))
+                cell = row.cells[c]
+                # Preparar foto: preferir foto enviada en base64
+                photo_bytes = None
+                key = str(est_id)
+                if key in photos and photos[key]:
+                    val = photos[key]
+                    if isinstance(val, str) and val.startswith('data:'):
+                        try:
+                            header, encoded = val.split(',', 1)
+                            photo_bytes = base64.b64decode(encoded)
+                        except Exception:
+                            photo_bytes = None
+
+                if not photo_bytes:
+                    # Crear placeholder con iniciales
+                    initials = ''
+                    try:
+                        initials = (estudiante.apellido.split(' ')[0][:1] + estudiante.nombre.split(' ')[0][:1]).upper()
+                    except Exception:
+                        initials = 'NA'
+                    img_ph = Image.new('RGB', (240, 240), color='white')
+                    draw = ImageDraw.Draw(img_ph)
+                    try:
+                        font = ImageFont.load_default()
+                    except Exception:
+                        font = None
+                    # Calcular ancho/alto del texto de forma compatible entre versiones de Pillow
+                    try:
+                        if font and hasattr(font, 'getsize'):
+                            w, h = font.getsize(initials)
+                        elif hasattr(draw, 'textbbox'):
+                            bbox = draw.textbbox((0, 0), initials, font=font)
+                            w, h = bbox[2] - bbox[0], bbox[3] - bbox[1]
+                        else:
+                            # Fallback aproximado
+                            w, h = (len(initials) * 10, 14)
+                    except Exception:
+                        w, h = (len(initials) * 10, 14)
+                    draw.text(((240 - w) / 2, (240 - h) / 2), initials, fill='black', font=font)
+                    bio = io.BytesIO()
+                    img_ph.save(bio, format='PNG')
+                    photo_bytes = bio.getvalue()
+
+                # Generar QR para el código del estudiante
+                qr = qrcode.QRCode(box_size=6, border=2)
+                qr.add_data(estudiante.codigo_id)
+                qr.make(fit=True)
+                img_qr = qr.make_image(fill_color='black', back_color='white')
+                bio_qr = io.BytesIO()
+                img_qr.save(bio_qr, format='PNG')
+                bio_qr.seek(0)
+
+                # Insertar foto y QR en la celda
+                bio_photo = io.BytesIO(photo_bytes)
+                bio_photo.seek(0)
+
+                # Añadir imagenes y texto dentro de la celda
+                p = cell.paragraphs[0]
+                run = p.add_run()
+                try:
+                    run.add_picture(bio_photo, width=Inches(1.0))
+                except Exception:
+                    # Si falla, intentar con QR sólo
+                    pass
+
+                p2 = cell.add_paragraph()
+                run2 = p2.add_run()
+                try:
+                    run2.add_picture(bio_qr, width=Inches(1.2))
+                except Exception:
+                    pass
+
+                # Datos del estudiante
+                cell.add_paragraph(f"{estudiante.apellido}, {estudiante.nombre}")
+                cell.add_paragraph(estudiante.dni or '')
+                cell.add_paragraph(estudiante.grado or '')
+
+                idx += 1
+
+        # Guardar documento en memoria
+        out = io.BytesIO()
+        doc.save(out)
+        out.seek(0)
+        headers = {
+            'Content-Disposition': 'attachment; filename=carnets.docx'
+        }
+        return Response(out.getvalue(), mimetype='application/vnd.openxmlformats-officedocument.wordprocessingml.document', headers=headers)
+
+    except Exception as e:
+        app.logger.exception('Error generando Word server-side')
+        return jsonify({'success': False, 'message': str(e)}), 500
 
 # --- ENDPOINT: Eliminar un estudiante ---
 @app.route('/api/estudiantes/<int:estudiante_id>', methods=['DELETE'])
