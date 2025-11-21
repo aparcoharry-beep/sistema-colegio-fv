@@ -23,7 +23,7 @@
             padding: 32px 32px 24px 32px;
         }
         .qr-title {
-            font-size: 3rem;
+            font-size: 4rem;
             font-family: 'Playfair Display', serif;
             font-weight: 900;
             text-align: center;
@@ -145,7 +145,7 @@
             padding: 18px 18px 8px 18px;
             text-align: center; /* min-width: 180px; */
             width: 90mm; /* Ancho fijo para PDF */
-            height: 65mm; /* Alto fijo para PDF */
+            height: 75mm; /* Alto fijo para PDF */
             display: flex;
             flex-direction: column;
             justify-content: center;
@@ -162,26 +162,32 @@
             margin-bottom: 10px;
         }
         .card-content .student-photo {
-            width: 70px;
-            height: 70px;
+            width: 120px;
+            height: 120px;
             object-fit: cover;
             border-radius: 50%;
             border: 2px solid #eee;
         }
         .card-content .qr-image {
-            width: 80px;
-            height: 80px;
+            width: 140px;
+            height: 140px;
         }
         .qr-card .name {
-            font-size: 0.85rem;
+            font-size: 1rem;
             font-weight: 700;
-            color: #38f9d7;
+            color: #000000;
             margin-bottom: 4px;
             word-break: break-word; /* Evita que nombres largos rompan el layout */
         }
+        .qr-card .dni {
+            font-size: 1rem;
+            font-weight: 700;
+            color: #000000;
+            margin-bottom: 4px;
+        }
         .qr-card .grado {
-            font-size: 0.95rem;
-            color: #43e97b;
+            font-size: 1rem;
+            color: #000000;
         }
 
         /* --- Estilos específicos para la generación del PDF --- */
@@ -254,7 +260,8 @@
         <div class="action-bar" id="actionBar" style="display:none;">
             <button class="gen-btn" id="generarBtn"><i class="fas fa-qrcode"></i> Generar QR</button>
             <button class="view-btn" id="verBtn"><i class="fas fa-eye"></i> Ver QR</button>
-            <button class="download-btn" id="descargarBtn"><i class="fas fa-download"></i> Descargar</button>
+            <button class="download-btn" id="descargarBtn"><i class="fas fa-file-pdf"></i> Descargar PDF</button>
+            <button class="download-btn" id="descargarWordBtn" style="background: linear-gradient(135deg, #2c5282 0%, #4a5568 100%);"><i class="fas fa-file-word"></i> Descargar Word</button>
             <label class="upload-photo-btn" style="background: linear-gradient(135deg, #1e40af 0%, #f06292 100%); color: #fff; border-radius: 8px; padding: 12px 22px; font-size: 1.1rem; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 8px; margin-left: 8px;">
                 <i class="fas fa-upload"></i> Subir Foto
                 <input type="file" id="fotoInput" accept="image/*" style="display:none;">
@@ -265,6 +272,11 @@
     <!-- Librería para generar PDF desde HTML -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js" integrity="sha512-GsLlZN/3F2ErC5ifS5QtgpiJtWd43JWSuIgh7mbzZ8zBps+dvLusV+eNQATqgA/HdeKFVgA5v3S/cIrLF7QnIg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+    <!-- Librerías para DOCX -->
+    <script src="https://unpkg.com/docx@8.5.0/build/index.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+
     <script>
         // Mapeo de fotos por estudiante
         let fotosEstudiantes = {};
@@ -369,6 +381,7 @@
                         <img src="${qrImageUrl}" alt="QR" class="qr-image" crossorigin="anonymous">
                     </div>
                     <div class="name">${est.apellidos}, ${est.nombres}</div>
+                    <div class="dni">${est.dni || ''}</div>
                     <div class="grado">${est.grado}</div>
                 `;
                 previewDiv.appendChild(card);
@@ -387,14 +400,19 @@ document.getElementById('descargarBtn').addEventListener('click', async function
     // Tomar clones de las cards generadas (las miniaturas)
     const originalCards = Array.from(previewDiv.children);
 
-    // Crear contenedor temporal visible para html2pdf (pero fuera de pantalla)
+    // Crear contenedor temporal para html2pdf. Mantenerlo dentro del viewport
+    // pero invisible (opacity 0) para que html2canvas lo renderice correctamente.
     const pdfContainer = document.createElement('div');
     pdfContainer.id = 'pdfContainerTemp';
     pdfContainer.style.position = 'fixed';
-    pdfContainer.style.left = '-9999px'; // fuera de la vista, pero renderizable
+    pdfContainer.style.left = '0';
     pdfContainer.style.top = '0';
     pdfContainer.style.width = '210mm'; // tamaño A4 exacto para html2pdf
     pdfContainer.style.boxSizing = 'border-box';
+    pdfContainer.style.background = '#ffffff';
+    pdfContainer.style.opacity = '0'; // invisible pero renderizable
+    pdfContainer.style.pointerEvents = 'none';
+    pdfContainer.style.zIndex = '9999';
     document.body.appendChild(pdfContainer);
 
     // Helper: crea elemento img con crossOrigin y espera cargue
@@ -517,6 +535,51 @@ document.getElementById('descargarBtn').addEventListener('click', async function
 
     // limpiar
     document.body.removeChild(pdfContainer);
+});
+
+document.getElementById('descargarWordBtn').addEventListener('click', async function() {
+    const previewDiv = document.getElementById('qrPreview');
+    if (!previewDiv || previewDiv.children.length === 0) {
+        alert('Primero debes generar los QR para poder descargarlos.');
+        return;
+    }
+
+    // Recolectar IDs y fotos (si existen en fotosEstudiantes)
+    const ids = Array.from(previewDiv.children).map(c => c.dataset.id).filter(Boolean);
+    const photosToSend = {};
+    ids.forEach(id => {
+        if (typeof fotosEstudiantes !== 'undefined' && fotosEstudiantes[id]) {
+            photosToSend[id] = fotosEstudiantes[id];
+        }
+    });
+
+    try {
+        const resp = await fetch('/api/generar-word', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ids: ids, photos: photosToSend })
+        });
+
+        if (!resp.ok) {
+            let j = null;
+            try { j = await resp.json(); } catch(e) {}
+            alert('Error generando Word: ' + (j && j.message ? j.message : resp.statusText));
+            return;
+        }
+
+        const blob = await resp.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'carnets.docx';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+    } catch (err) {
+        console.error('Error al solicitar generación server-side:', err);
+        alert('Ocurrió un error al generar el documento. Revisa la consola.');
+    }
 });
     </script>
 </body>
