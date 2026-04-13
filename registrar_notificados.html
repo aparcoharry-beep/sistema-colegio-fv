@@ -1,0 +1,319 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+    /* --- OVERRIDE: PANTALLA COMPLETA PARA TABLA GRANDE --- */
+    /* Esto anula el límite de 420px del base.html solo para esta página */
+    .container {
+        max-width: 98% !important;
+        width: 98% !important;
+        /* Cambio a estilo EXCEL (Fondo Blanco/Gris) */
+        background-color: #f3f3f3 !important;
+        border: 1px solid #ccc !important;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.1) !important;
+        backdrop-filter: none !important;
+        color: #333 !important;
+    }
+
+    /* Quitar efectos Gamer globales */
+    .container::after { display: none !important; }
+    body { background: #e0e0e0 !important; } /* Fondo neutro detrás de la "hoja" */
+
+    /* OCULTAR MENÚ SUPERIOR (Ingresar/Salir) EN ESTA PANTALLA */
+    .nav-links { display: none !important; }
+
+    h2 {
+        color: #1D6F42 !important; /* Verde Excel */
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif !important;
+        text-shadow: none !important;
+        border-bottom: 2px solid #1D6F42;
+        padding-bottom: 10px;
+        text-transform: uppercase !important;
+        letter-spacing: 1px !important;
+        font-weight: 800 !important;
+    }
+
+    /* Estilos específicos para la barra de herramientas */
+    .toolbar {
+        display: flex;
+        gap: 15px;
+        align-items: center;
+        background: #fff;
+        padding: 10px;
+        border-radius: 4px;
+        margin-bottom: 25px;
+        border: 1px solid #ccc;
+        flex-wrap: wrap;
+        box-shadow: inset 0 0 5px rgba(0,0,0,0.05);
+    }
+
+    .file-input-wrapper {
+        position: relative;
+        overflow: hidden;
+        display: inline-block;
+    }
+
+    .file-input-wrapper input[type=file] {
+        font-size: 100px;
+        position: absolute;
+        left: 0;
+        top: 0;
+        opacity: 0;
+        cursor: pointer;
+    }
+
+    /* Botones de la barra */
+    .btn-tool {
+        padding: 0 10px;
+        border-radius: 2px;
+        font-family: 'Segoe UI', sans-serif; /* Fuente normal */
+        font-size: 14px;
+        border: 1px solid #999; /* Borde sólido y definido */
+        cursor: pointer;
+        transition: 0.2s;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center; /* Centrar texto */
+        gap: 8px;
+        color: #333;
+        text-transform: none;
+        letter-spacing: normal;
+        font-weight: 600;
+        height: 45px; /* Misma altura */
+        width: 200px; /* Ancho fijo para que ambos botones sean iguales y compactos */
+    }
+
+    .btn-excel {
+        background: #ffc107; /* Amarillo */
+        border-color: #e0a800;
+        color: #212529; /* Texto oscuro para contraste */
+        box-shadow: none;
+    }
+    .btn-excel:hover { background: #e0a800; border-color: #d39e00; }
+
+    .btn-save {
+        background: #1D6F42; /* Verde Excel */
+        color: white;
+        box-shadow: none;
+        margin-left: auto; /* Empujar a la derecha */
+        border: 1px solid #145532; /* Borde sólido oscuro */
+    }
+    .btn-save:hover { background: #155734; transform: none; box-shadow: none; }
+
+    /* BARRA INFERIOR DE ESTADO Y DESCARGA */
+    .bottom-bar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background: #e8f5e9; /* Verde muy claro */
+        border: 1px solid #c8e6c9;
+        padding: 10px 20px;
+        border-radius: 4px;
+        margin-top: 20px;
+        color: #2e7d32;
+        font-weight: bold;
+    }
+    .btn-download {
+        background: #2e7d32;
+        color: white;
+        border: none;
+        padding: 8px 15px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 14px;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+    }
+    .btn-download:hover { background: #1b5e20; }
+    
+    /* ESTILOS DE LA TABLA DINÁMICA TIPO EXCEL */
+    .table-container {
+        overflow-x: auto;
+        border-radius: 0;
+        border: 1px solid #ccc;
+        background: #fff;
+        margin-bottom: 20px;
+        box-shadow: none;
+    }
+
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13px;
+        font-family: 'Segoe UI', sans-serif;
+        color: #333;
+        min-width: 1200px; /* Asegura scroll si es muy ancha */
+    }
+
+    th {
+        background: #f2f2f2;
+        color: #333;
+        padding: 8px;
+        text-align: center;
+        border: 1px solid #ccc; /* Bordes de rejilla */
+        font-weight: 600;
+        letter-spacing: normal;
+        text-transform: none;
+    }
+
+    td {
+        padding: 0; /* Padding 0 para que el input llene la celda */
+        border: 1px solid #ccc; /* Rejilla gris */
+        background: #fff;
+    }
+
+    /* Inputs dentro de la tabla estilo Excel/Word */
+    td input {
+        width: 100%;
+        background: #fff;
+        border: none;
+        color: #333; /* Texto negro */
+        padding: 6px 8px;
+        margin: 0;
+        border-radius: 0;
+        font-family: 'Segoe UI', sans-serif;
+        font-size: 1em;
+    }
+
+    td input:focus {
+        background: #e8f0fe; /* Azul muy claro al seleccionar */
+        box-shadow: none;
+        transform: none;
+        outline: 2px solid #1D6F42; /* Borde verde al editar */
+        z-index: 10;
+        position: relative;
+    }
+
+    /* Estilo para los Selects dentro de la tabla */
+    td select {
+        width: 100%;
+        background: #fff;
+        border: none;
+        padding: 6px 8px;
+        font-family: 'Segoe UI', sans-serif;
+        font-size: 1em;
+        cursor: pointer;
+    }
+
+    .btn-add-row {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: #f0f0f0;
+        color: white;
+        font-size: 24px;
+        border: 1px solid #ccc;
+        color: #333;
+        cursor: pointer;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        margin: 10px auto;
+        transition: 0.3s;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .btn-add-row:hover {
+        background: #e0e0e0;
+        transform: scale(1.1);
+    }
+</style>
+
+<h2>Registrar Notificados</h2>
+
+<!-- FORMULARIO ÚNICO PARA ACCIONES Y TABLA -->
+<form method="POST" enctype="multipart/form-data" id="mainForm">
+    
+    <!-- Barra de Herramientas -->
+    <div class="toolbar">
+        <div class="file-input-wrapper">
+            <button type="button" class="btn-tool btn-excel">📂 Seleccionar Excel</button>
+            <input type="file" name="file" accept=".xlsx, .xls" onchange="this.form.querySelector('.btn-excel').textContent = '📄 ' + this.files[0].name; document.getElementById('btnCargar').style.display='inline-flex'; document.getElementById('btnCargar').style.color='#333';">
+        </div>
+        
+        <button type="submit" name="accion" value="cargar_excel" id="btnCargar" class="btn-tool btn-excel" style="display:none;">⬇ Cargar en Tabla</button>
+
+        <button type="submit" name="accion" value="guardar_bd" class="btn-tool btn-save">💾 Guardar Todo</button>
+    </div>
+
+    <!-- Tabla Dinámica -->
+    <div class="table-container">
+        <table id="dataTable">
+            <thead>
+                <tr>
+                    <th style="width: 40px;">N°</th>
+                    <th>Nombres y Apellidos</th>
+                    <th style="width: 100px;">DNI</th>
+                    <th>Idioma</th>
+                    <th>Cód. y N° Libro</th>
+                    <th style="width: 60px;">Año</th>
+                    <th style="width: 110px;">F. Elaboración</th>
+                    <th style="width: 110px;">F. Entrega</th>
+                    <th>Correo Entrega</th>
+                    <th>Modalidad</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in datos_tabla %}
+                <tr>
+                    <td style="text-align:center; background-color: #f8f9fa;">{{ loop.index }}</td>
+                    <td><input type="text" name="nombres_apellidos[]" value="{{ row.nombres_apellidos }}" placeholder=""></td>
+                    <td><input type="text" name="dni[]" value="{{ row.dni }}" placeholder=""></td>
+                    <td>
+                        <select name="idioma[]">
+                            <option value="">-- Seleccionar --</option>
+                            <option value="Ingles" {% if row.idioma == 'Ingles' %}selected{% endif %}>Inglés</option>
+                            <option value="Portugues" {% if row.idioma == 'Portugues' %}selected{% endif %}>Portugués</option>
+                            <option value="Italiano" {% if row.idioma == 'Italiano' %}selected{% endif %}>Italiano</option>
+                            <option value="Quechua" {% if row.idioma == 'Quechua' %}selected{% endif %}>Quechua</option>
+                        </select>
+                    </td>
+                    <td><input type="text" name="codigo_libro[]" value="{{ row.codigo_libro }}" placeholder=""></td>
+                    <td><input type="text" name="anio[]" value="{{ row.anio }}" placeholder=""></td>
+                    <td><input type="date" name="fecha_elaboracion[]" value="{{ row.fecha_elaboracion }}"></td>
+                    <td><input type="date" name="fecha_entrega[]" value="{{ row.fecha_entrega }}"></td>
+                    <td><input type="email" name="correo_entrega[]" value="{{ row.correo_entrega }}" placeholder=""></td>
+                    <td>
+                        <select name="modalidad[]">
+                            <option value="">-- Seleccionar --</option>
+                            <option value="UBICACIÓN" {% if row.modalidad == 'UBICACIÓN' %}selected{% endif %}>UBICACIÓN</option>
+                            <option value="ACREDITACIÓN" {% if row.modalidad == 'ACREDITACIÓN' %}selected{% endif %}>ACREDITACIÓN</option>
+                            <option value="SUFICIENCIA" {% if row.modalidad == 'SUFICIENCIA' %}selected{% endif %}>SUFICIENCIA</option>
+                            <option value="ACTUALIZACIÓN" {% if row.modalidad == 'ACTUALIZACIÓN' %}selected{% endif %}>ACTUALIZACIÓN</option>
+                            <option value="ESTUDIO" {% if row.modalidad == 'ESTUDIO' %}selected{% endif %}>ESTUDIO</option>
+                        </select>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Botón flotante para agregar fila -->
+    <button type="button" class="btn-add-row" onclick="addRow()" title="Agregar Fila">+</button>
+</form>
+
+<script>
+    function addRow() {
+        var table = document.getElementById("dataTable").getElementsByTagName('tbody')[0];
+        var newRow = table.rows[0].cloneNode(true);
+        
+        // Calcular nuevo índice
+        var rowCount = table.rows.length + 1;
+        newRow.cells[0].innerText = rowCount;
+
+        // Limpiar valores de los inputs
+        var inputs = newRow.getElementsByTagName('input');
+        for (var i = 0; i < inputs.length; i++) {
+            inputs[i].value = '';
+        }
+        
+        table.appendChild(newRow);
+    }
+</script>
+
+<div style="text-align: left;">
+    <a href="/dashboard" style="color: #1D6F42; text-decoration: none; font-weight: bold; font-family: 'Segoe UI', sans-serif; border: 1px solid #1D6F42; padding: 8px 15px; border-radius: 4px; display: inline-block;">&larr; Volver al Menú</a>
+</div>
+{% endblock %}

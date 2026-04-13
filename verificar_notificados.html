@@ -1,0 +1,460 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+    /* --- ESTILO TIPO EXCEL (Override del estilo Gamer) --- */
+    .container {
+        max-width: 98% !important;
+        width: 98% !important;
+        background-color: #f3f3f3 !important;
+        border: 1px solid #ccc !important;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.1) !important;
+        backdrop-filter: none !important;
+        color: #333 !important;
+    }
+    .container::after { display: none !important; }
+    body { background: #e0e0e0 !important; }
+    
+    /* OCULTAR MENÚ SUPERIOR */
+    .nav-links { display: none !important; }
+
+    h2 {
+        color: #1D6F42 !important;
+        font-family: 'Segoe UI', sans-serif !important;
+        text-shadow: none !important;
+        border-bottom: 2px solid #1D6F42;
+        padding-bottom: 10px;
+        text-transform: uppercase !important;
+        letter-spacing: 1px !important;
+        font-weight: 800 !important;
+    }
+
+    /* BARRA DE FILTROS SUPERIOR */
+    .toolbar {
+        display: flex;
+        gap: 15px;
+        align-items: center;
+        background: #fff;
+        padding: 15px;
+        border-radius: 4px;
+        margin-bottom: 25px;
+        border: 1px solid #ccc;
+        flex-wrap: wrap;
+    }
+
+    .filter-group {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .filter-group label {
+        font-size: 12px;
+        font-weight: bold;
+        margin-bottom: 5px;
+        color: #555;
+        text-transform: uppercase;
+    }
+
+    select.form-select {
+        padding: 8px 12px;
+        border: 1px solid #999;
+        border-radius: 2px;
+        font-family: 'Segoe UI', sans-serif;
+        font-size: 14px;
+        width: 180px;
+        box-sizing: border-box;
+        background-color: #fff;
+        color: #333;
+        cursor: pointer;
+    }
+
+    /* --- NUEVO ESTILO: DROPDOWN CON CHECKBOXES --- */
+    .dropdown-check-list {
+        display: inline-block;
+        position: relative;
+        width: 200px;
+        font-family: 'Segoe UI', sans-serif;
+        font-size: 14px;
+    }
+
+    .dropdown-check-list .anchor {
+        position: relative;
+        cursor: pointer;
+        display: block;
+        padding: 8px 12px;
+        border: 1px solid #999;
+        border-radius: 2px;
+        background: #fff;
+        color: #333;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .dropdown-check-list .anchor::after {
+        content: "▼";
+        position: absolute;
+        right: 10px;
+        font-size: 10px;
+        top: 12px;
+    }
+
+    .dropdown-check-list ul.items {
+        padding: 0;
+        display: none; /* Oculto por defecto */
+        margin: 0;
+        border: 1px solid #ccc;
+        border-top: none;
+        position: absolute;
+        background: #fff;
+        width: 100%;
+        z-index: 100;
+        max-height: 200px;
+        overflow-y: auto;
+        box-shadow: 0 4px 5px rgba(0,0,0,0.15);
+    }
+    
+    .dropdown-check-list ul.items li {
+        list-style: none;
+        padding: 8px 10px;
+        border-bottom: 1px solid #eee;
+        display: flex;
+        justify-content: space-between; /* Texto a la izq, Checkbox a la derecha */
+        align-items: center;
+    }
+
+    .dropdown-check-list ul.items li:hover { background-color: #f1f1f1; }
+    
+    .dropdown-check-list.visible .items { display: block; }
+
+    .btn-search {
+        margin-top: 20px; /* Ajuste para alinear con los inputs que tienen label */
+        padding: 8px 12px; /* Igual que el select */
+        width: 180px;      /* Igual que el select de Año */
+        box-sizing: border-box;
+        background: #1D6F42;
+        color: white;
+        border: 1px solid #145532;
+        border-radius: 2px; /* Igual que el select */
+        font-weight: 600;
+        cursor: pointer;
+        font-family: 'Segoe UI', sans-serif;
+        font-size: 14px; /* Igual que el select */
+    }
+    .btn-search:hover { background: #155734; }
+
+    /* TABLA DE RESULTADOS */
+    .table-container {
+        overflow-x: auto;
+        border: 1px solid #ccc;
+        background: #fff;
+        margin-bottom: 20px;
+    }
+
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13px;
+        font-family: 'Segoe UI', sans-serif;
+        color: #333;
+        min-width: 1000px;
+    }
+
+    th {
+        background: #f2f2f2;
+        padding: 10px;
+        border: 1px solid #ccc;
+        text-align: center;
+    }
+
+    td {
+        padding: 8px;
+        border: 1px solid #ccc;
+        text-align: center;
+    }
+
+    /* BARRA INFERIOR */
+    .bottom-bar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background: #e3f2fd; /* Azul muy claro */
+        border: 1px solid #bbdefb;
+        padding: 10px 20px;
+        border-radius: 4px;
+        margin-top: 15px;
+        color: #1565c0;
+        font-weight: bold;
+    }
+    .btn-download-results {
+        background: #1565c0;
+        color: white;
+        border: none;
+        padding: 8px 12px; /* Igual que el select */
+        width: 180px;      /* Igual que el select */
+        box-sizing: border-box;
+        border-radius: 2px; /* Igual que el select */
+        cursor: pointer;
+        font-size: 14px; /* Igual que el select */
+    }
+    .btn-download-results:hover { background: #0d47a1; }
+
+    /* ESTILOS PARA MODO BORRADO */
+    .delete-col {
+        display: none; /* Oculto por defecto */
+        width: 40px;
+        background-color: #ffebee;
+    }
+    .btn-toggle-delete {
+        background: #d32f2f; /* Rojo Oscuro */
+        color: white;
+        border: none;
+        padding: 8px 12px;
+        width: 180px;
+        box-sizing: border-box;
+        border-radius: 2px;
+        cursor: pointer;
+        font-size: 14px;
+    }
+    .btn-toggle-delete:hover { background: #b71c1c; }
+    
+    /* Checkbox más grande para facilitar clic */
+    input[type=checkbox].delete-check { transform: scale(1.2); cursor: pointer; }
+
+    /* Estilo para resaltar el contador */
+    .count-badge {
+        border: 2px solid #1565c0;
+        padding: 5px 15px;
+        border-radius: 20px;
+        background-color: #fff;
+    }
+</style>
+
+<h2>Verificar Usuarios Notificados</h2>
+
+<form method="POST" class="toolbar" id="filterForm">
+    <div class="filter-group">
+        <label>Año</label>
+        <!-- Año vuelve a ser selección única normal -->
+        <select name="anio" class="form-select">
+            <option value="">-- Todos --</option>
+            {% for y in range(2020, 2030) %}
+                <option value="{{ y }}">{{ y }}</option>
+            {% endfor %}
+        </select>
+    </div>
+
+    <div class="filter-group">
+        <label>Mes</label>
+        <div id="list-mes" class="dropdown-check-list" tabindex="100">
+            <span class="anchor" onclick="toggleDropdown('list-mes', event)">-- Seleccionar --</span>
+            <ul class="items">
+                <li>Enero <input type="checkbox" name="mes" value="1"></li>
+                <li>Febrero <input type="checkbox" name="mes" value="2"></li>
+                <li>Marzo <input type="checkbox" name="mes" value="3"></li>
+                <li>Abril <input type="checkbox" name="mes" value="4"></li>
+                <li>Mayo <input type="checkbox" name="mes" value="5"></li>
+                <li>Junio <input type="checkbox" name="mes" value="6"></li>
+                <li>Julio <input type="checkbox" name="mes" value="7"></li>
+                <li>Agosto <input type="checkbox" name="mes" value="8"></li>
+                <li>Septiembre <input type="checkbox" name="mes" value="9"></li>
+                <li>Octubre <input type="checkbox" name="mes" value="10"></li>
+                <li>Noviembre <input type="checkbox" name="mes" value="11"></li>
+                <li>Diciembre <input type="checkbox" name="mes" value="12"></li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="filter-group">
+        <label>Idiomas</label>
+        <div id="list-idioma" class="dropdown-check-list" tabindex="100">
+            <span class="anchor" onclick="toggleDropdown('list-idioma', event)">-- Seleccionar --</span>
+            <ul class="items">
+                <li>Inglés <input type="checkbox" name="idioma" value="Ingles"></li>
+                <li>Portugués <input type="checkbox" name="idioma" value="Portugues"></li>
+                <li>Italiano <input type="checkbox" name="idioma" value="Italiano"></li>
+                <li>Quechua <input type="checkbox" name="idioma" value="Quechua"></li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="filter-group">
+        <label>Modalidad</label>
+        <div id="list-modalidad" class="dropdown-check-list" tabindex="100">
+            <span class="anchor" onclick="toggleDropdown('list-modalidad', event)">-- Seleccionar --</span>
+            <ul class="items">
+                <li>UBICACIÓN <input type="checkbox" name="modalidad" value="UBICACIÓN"></li>
+                <li>ACREDITACIÓN <input type="checkbox" name="modalidad" value="ACREDITACIÓN"></li>
+                <li>SUFICIENCIA <input type="checkbox" name="modalidad" value="SUFICIENCIA"></li>
+                <li>ACTUALIZACIÓN <input type="checkbox" name="modalidad" value="ACTUALIZACIÓN"></li>
+                <li>ESTUDIO <input type="checkbox" name="modalidad" value="ESTUDIO"></li>
+            </ul>
+        </div>
+    </div>
+
+    <button type="submit" name="accion" value="buscar" class="btn-search">🔍 Buscar</button>
+</form>
+
+<div class="table-container">
+    <!-- Formulario exclusivo para eliminar -->
+    <form method="POST" id="deleteForm">
+    <table>
+        <thead>
+            <tr>
+                <th class="delete-col">
+                    <input type="checkbox" onclick="toggleSelectAll(this)" class="delete-check" title="Seleccionar Todo">
+                </th>
+                <th>N°</th>
+                <th>Nombres y Apellidos</th>
+                <th>DNI</th>
+                <th>Idioma</th>
+                <th>Cód. y N° Libro</th>
+                <th>Año</th>
+                <th>Mes</th>
+                <th>F. Elaboración</th>
+                <th>F. Entrega</th>
+                <th>Correo Entrega</th>
+                <th>Modalidad</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% if resultados %}
+                {# Definimos la lista de meses para mostrar el nombre #}
+                {% set nombres_meses = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'] %}
+                {% for row in resultados %}
+                <tr>
+                    <td class="delete-col">
+                        <input type="checkbox" name="eliminar_ids" value="{{ row.id }}" class="delete-check">
+                    </td>
+                    <td>{{ loop.index }}</td>
+                    <td>{{ row.nombres_apellidos }}</td>
+                    <td>{{ row.dni }}</td>
+                    <td>{{ row.idioma }}</td>
+                    <td>{{ row.codigo_libro }}</td>
+                    <td>
+                        {% if row.fecha_elaboracion %}
+                            {{ row.fecha_elaboracion.year }}
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if row.fecha_elaboracion %}
+                            {{ nombres_meses[row.fecha_elaboracion.month - 1] }}
+                        {% endif %}
+                    </td>
+                    <td>{{ row.fecha_elaboracion }}</td>
+                    <td>{{ row.fecha_entrega }}</td>
+                    <td>{{ row.correo_entrega }}</td>
+                    <td>{{ row.modalidad }}</td>
+                </tr>
+                {% endfor %}
+            {% else %}
+                <tr>
+                    <td colspan="11" style="padding: 20px; color: #777;">Seleccione los filtros y presione Buscar para ver resultados.</td>
+                </tr>
+            {% endif %}
+        </tbody>
+    </table>
+    </form>
+</div>
+
+<!-- Barra Inferior de Resultados -->
+{% if resultados %}
+<div class="bottom-bar">
+    <span class="count-badge">👥 Total: {{ resultados|length }}</span>
+    
+    <div style="display: flex; gap: 10px;">
+        <!-- Botón para activar Modo Borrado -->
+        <button type="button" class="btn-toggle-delete" id="btnModeDelete" onclick="toggleDeleteMode()">🗑 Opción Borrar</button>
+        <!-- Botón Confirmar (Inicialmente oculto) -->
+        <button type="submit" form="deleteForm" name="accion" value="eliminar" class="btn-toggle-delete" id="btnConfirmDelete" style="display:none;" onclick="return confirm('¿Está seguro de eliminar los registros seleccionados? Esta acción no se puede deshacer.')">⚠️ Confirmar Borrar</button>
+        
+        <button type="submit" form="filterForm" name="accion" value="exportar_excel" class="btn-download-results">📥 Descargar Resultados</button>
+    </div>
+</div>
+{% endif %}
+
+<div style="text-align: left;">
+    <a href="/dashboard" style="color: #1D6F42; text-decoration: none; font-weight: bold; font-family: 'Segoe UI', sans-serif; border: 1px solid #1D6F42; padding: 8px 15px; border-radius: 4px; display: inline-block;">&larr; Volver al Menú</a>
+</div>
+
+<script>
+    // Función para activar/desactivar modo borrado
+    function toggleDeleteMode() {
+        var cols = document.querySelectorAll('.delete-col');
+        var btnMode = document.getElementById('btnModeDelete');
+        var btnConfirm = document.getElementById('btnConfirmDelete');
+        
+        var isHidden = cols[0].style.display === 'none' || cols[0].style.display === '';
+
+        cols.forEach(function(col) {
+            col.style.display = isHidden ? 'table-cell' : 'none';
+        });
+
+        if (isHidden) {
+            btnMode.innerText = 'Cancelar Borrado';
+            btnMode.style.background = '#777'; // Gris para cancelar
+            btnConfirm.style.display = 'inline-block';
+        } else {
+            btnMode.innerText = '🗑 Opción Borrar';
+            btnMode.style.background = '#d32f2f'; // Rojo original
+            btnConfirm.style.display = 'none';
+        }
+    }
+
+    // Función para seleccionar todos
+    function toggleSelectAll(source) {
+        var checkboxes = document.getElementsByName('eliminar_ids');
+        for(var i=0; i<checkboxes.length; i++) {
+            checkboxes[i].checked = source.checked;
+        }
+    }
+
+    function toggleDropdown(id, event) {
+        // Detener la propagación para que el clic no llegue al detector global inmediatamente
+        if (event) event.stopPropagation();
+
+        var element = document.getElementById(id);
+        
+        // Cerrar cualquier otro menú que esté abierto para evitar solapamientos
+        document.querySelectorAll('.dropdown-check-list.visible').forEach(function(el) {
+            if (el.id !== id) el.classList.remove('visible');
+        });
+
+        element.classList.toggle('visible');
+    }
+
+    // Detector global: Si haces clic fuera de un menú visible, ciérralo
+    document.addEventListener('click', function(e) {
+        document.querySelectorAll('.dropdown-check-list.visible').forEach(function(dropdown) {
+            // Si el objetivo del clic NO está dentro del menú desplegable, remover clase visible
+            if (!dropdown.contains(e.target)) {
+                dropdown.classList.remove('visible');
+            }
+        });
+    });
+
+    document.addEventListener('DOMContentLoaded', function() {
+        var dropdowns = document.querySelectorAll('.dropdown-check-list');
+        
+        dropdowns.forEach(function(dropdown) {
+            var anchor = dropdown.querySelector('.anchor');
+            var checkboxes = dropdown.querySelectorAll('input[type="checkbox"]');
+            
+            checkboxes.forEach(function(checkbox) {
+                checkbox.addEventListener('change', function() {
+                    var selected = [];
+                    checkboxes.forEach(function(cb) {
+                        if (cb.checked) {
+                            // Obtener solo el texto del LI (nombre de la opción)
+                            selected.push(cb.parentElement.innerText.trim());
+                        }
+                    });
+
+                    anchor.innerText = selected.length > 0 ? (selected.length > 2 ? selected.length + " seleccionados" : selected.join(", ")) : "-- Seleccionar --";
+                });
+            });
+        });
+    });
+</script>
+{% endblock %}

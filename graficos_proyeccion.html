@@ -1,0 +1,356 @@
+{% extends "base.html" %}
+
+{% block content %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+    .container {
+        max-width: 98% !important;
+        width: 98% !important;
+        background-color: #f3f3f3 !important;
+        color: #333 !important;
+        border: 1px solid #ccc !important;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.1) !important;
+        backdrop-filter: none !important;
+    }
+    body { background: #e0e0e0 !important; }
+    .nav-links { display: none !important; }
+
+    .dashboard-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+        background: #fff;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+
+    h2 { color: #1D6F42; margin: 0; font-weight: 800; }
+
+    .kpi-container {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 20px;
+        margin-bottom: 25px;
+    }
+
+    .kpi-card {
+        background: white;
+        padding: 20px;
+        border-radius: 8px;
+        border-left: 5px solid #1D6F42;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        text-align: center;
+    }
+
+    .kpi-card h3 { font-size: 14px; color: #666; margin: 0; text-transform: uppercase; }
+    .kpi-card p { font-size: 32px; font-weight: bold; color: #1D6F42; margin: 10px 0 0 0; }
+
+    /* GRID DE GRÁFICOS */
+    .chart-box {
+        background: white;
+        width: 100%;
+        padding: 20px;
+        border-radius: 8px;
+        border: 1px solid #ccc;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        height: 380px;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .chart-title { 
+        font-size: 14px; font-weight: bold; color: #1D6F42; 
+        margin-bottom: 15px; border-bottom: 2px solid #1D6F42; 
+        padding-bottom: 8px; text-align: center; text-transform: uppercase; 
+    }
+
+    canvas { flex-grow: 1; width: 100% !important; }
+
+    .toolbar {
+        background: #fff;
+        padding: 15px;
+        border-radius: 4px;
+        margin-bottom: 25px;
+        border: 1px solid #ccc;
+        display: flex;
+        gap: 15px;
+        flex-wrap: wrap;
+        align-items: center;
+    }
+    .filter-group { display: flex; flex-direction: column; gap: 5px; }
+    .filter-group label { font-size: 11px; font-weight: bold; color: #1D6F42; text-transform: uppercase; }
+    
+    .form-select, .btn-search {
+        height: 35px;
+        border: 1px solid #999;
+        border-radius: 2px;
+        padding: 0 10px;
+        font-family: 'Segoe UI', sans-serif;
+    }
+    .btn-search { background: #1D6F42; color: white; cursor: pointer; border: 1px solid #145532; font-weight: bold; width: 160px; }
+    .btn-search:hover { background: #155734; }
+
+    /* Estilos Dropdowns multiselect idénticos a Verificar */
+    .dropdown-check-list {
+        display: inline-block;
+        position: relative;
+        width: 170px;
+        font-family: 'Segoe UI', sans-serif;
+        font-size: 14px;
+    }
+    .dropdown-check-list .anchor {
+        position: relative;
+        cursor: pointer;
+        display: block;
+        padding: 8px 12px;
+        border: 1px solid #999;
+        border-radius: 2px;
+        background: #fff;
+        color: #333;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .dropdown-check-list .anchor::after {
+        content: "▼";
+        position: absolute;
+        right: 10px;
+        font-size: 10px;
+        top: 12px;
+    }
+    .dropdown-check-list ul.items {
+        padding: 0;
+        display: none;
+        margin: 0;
+        border: 1px solid #999;
+        border-top: none;
+        position: absolute;
+        background: #fff;
+        width: 100%;
+        z-index: 100;
+        max-height: 200px;
+        overflow-y: auto;
+        box-shadow: 0 4px 5px rgba(0,0,0,0.15);
+    }
+    .dropdown-check-list ul.items li { list-style: none; padding: 8px 10px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; }
+    .dropdown-check-list ul.items li:hover { background-color: #f1f1f1; }
+    .dropdown-check-list.visible .items { display: block; }
+
+    /* TABLA DE CRECIMIENTO */
+    .growth-table-container {
+        background: white;
+        padding: 20px;
+        border-radius: 8px;
+        border: 1px solid #ccc;
+        margin-top: 20px;
+    }
+    .growth-table { width: 100%; border-collapse: collapse; font-family: sans-serif; font-size: 14px; }
+    .growth-table th { background: #1D6F42; color: white; padding: 12px; text-align: center; }
+    .growth-table td { border: 1px solid #eee; padding: 10px; text-align: center; font-weight: bold; }
+    .growth-table tr:nth-child(even) { background: #f9f9f9; }
+    .trend-up { color: #1D6F42; }
+    .trend-down { color: #d32f2f; }
+    .trend-neutral { color: #666; }
+
+</style>
+
+<div class="dashboard-header">
+    <h2>📊 Panel de Proyecciones y Análisis</h2>
+    <a href="/dashboard" style="color: #1D6F42; text-decoration: none; font-weight: bold;">&larr; Volver</a>
+</div>
+
+<!-- Filtros -->
+<form method="POST" class="toolbar">
+    <div class="filter-group">
+        <label>Años</label>
+        <div id="list-anio" class="dropdown-check-list">
+            <span class="anchor" onclick="toggleDropdown('list-anio', event)">-- Seleccionar --</span>
+            <ul class="items">
+                {% for y in range(2020, 2030) %}
+                <li>{{ y }} <input type="checkbox" name="anio" value="{{ y }}" {% if y|string in filtros.anio %}checked{% endif %}></li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+    <div class="filter-group">
+        <label>Meses</label>
+        <div id="list-mes" class="dropdown-check-list">
+            <span class="anchor" onclick="toggleDropdown('list-mes', event)">-- Seleccionar --</span>
+            <ul class="items">
+                {% set meses_nombres = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'] %}
+                {% for i in range(1, 13) %}
+                <li>{{ meses_nombres[i-1] }} <input type="checkbox" name="mes" value="{{ i }}" {% if i|string in filtros.meses %}checked{% endif %}></li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+    <div class="filter-group">
+        <label>Idioma</label>
+        <div id="list-idioma" class="dropdown-check-list">
+            <span class="anchor" onclick="toggleDropdown('list-idioma', event)">-- Seleccionar --</span>
+            <ul class="items">
+                <li>INGLÉS <input type="checkbox" name="idioma" value="Ingles" {% if 'Ingles' in filtros.idiomas %}checked{% endif %}></li>
+                <li>PORTUGUÉS <input type="checkbox" name="idioma" value="Portugues" {% if 'Portugues' in filtros.idiomas %}checked{% endif %}></li>
+                <li>Italiano <input type="checkbox" name="idioma" value="Italiano" {% if 'Italiano' in filtros.idiomas %}checked{% endif %}></li>
+                <li>QUECHUA <input type="checkbox" name="idioma" value="Quechua" {% if 'Quechua' in filtros.idiomas %}checked{% endif %}></li>
+            </ul>
+        </div>
+    </div>
+    <div class="filter-group">
+        <label>Modalidad</label>
+        <div id="list-modalidad" class="dropdown-check-list">
+            <span class="anchor" onclick="toggleDropdown('list-modalidad', event)">-- Seleccionar --</span>
+            <ul class="items">
+                {% for mod in ['UBICACIÓN', 'ACREDITACIÓN', 'SUFICIENCIA', 'ACTUALIZACIÓN', 'ESTUDIO'] %}
+                <li>{{ mod }} <input type="checkbox" name="modalidad" value="{{ mod }}" {% if mod in filtros.modalidades %}checked{% endif %}></li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+
+    <div class="filter-group">
+        <label>Estilo Visual</label>
+        <select name="tipo_grafico" class="form-select" style="width: 180px;">
+            <option value="bar" {% if filtros.tipo_grafico == 'bar' %}selected{% endif %}>📊 Barras Verticales</option>
+            <option value="horizontalBar" {% if filtros.tipo_grafico == 'horizontalBar' %}selected{% endif %}>📉 Barras Horizontales</option>
+            <option value="line" {% if filtros.tipo_grafico == 'line' %}selected{% endif %}>📈 Línea Continua</option>
+            <option value="pie" {% if filtros.tipo_grafico == 'pie' %}selected{% endif %}>🍕 Pastel (Pie)</option>
+            <option value="doughnut" {% if filtros.tipo_grafico == 'doughnut' %}selected{% endif %}>🍩 Dona</option>
+            <option value="polarArea" {% if filtros.tipo_grafico == 'polarArea' %}selected{% endif %}>❄️ Área Polar</option>
+            <option value="radar" {% if filtros.tipo_grafico == 'radar' %}selected{% endif %}>🕸️ Radar (Telaraña)</option>
+            <option value="area" {% if filtros.tipo_grafico == 'area' %}selected{% endif %}>🌊 Gráfico de Área</option>
+            <option value="stepped" {% if filtros.tipo_grafico == 'stepped' %}selected{% endif %}>🪜 Escalones</option>
+            <option value="point" {% if filtros.tipo_grafico == 'point' %}selected{% endif %}>📍 Puntos / Dispersión</option>
+        </select>
+    </div>
+
+    <button type="submit" class="btn-search">🔄 Generar Gráfico</button>
+</form>
+
+{% if show_results %}
+<!-- Contenedor de Resultados (Solo visible tras buscar) -->
+<div class="kpi-container">
+    <div class="kpi-card">
+        <h3>Total Personas Certificadas</h3>
+        <p>{{ chart_data.total }} Personas</p>
+    </div>
+</div>
+
+<div class="dashboard-grid" style="margin-bottom: 30px;">
+    <div class="chart-box">
+        <div class="chart-title">📊 Análisis de Personas según Filtros Seleccionados</div>
+        <canvas id="mainChart"></canvas>
+    </div>
+</div>
+{% else %}
+<div style="text-align: center; padding: 50px; background: white; border-radius: 8px; border: 1px dashed #ccc; color: #666;">
+    <h3>Seleccione los filtros arriba y pulse "Generar Gráfico" para visualizar el análisis.</h3>
+</div>
+{% endif %}
+
+<!-- Inyección de datos segura: Elimina errores de sintaxis en el editor -->
+<script id="filtros-data" type="application/json">{{ filtros | tojson | safe }}</script>
+<script id="chart-data" type="application/json">{{ chart_data | tojson | safe }}</script>
+
+<script>
+    const rawData = document.getElementById('chart-data').textContent;
+    const rawFiltros = document.getElementById('filtros-data').textContent;
+
+    if (rawData && rawData.trim() !== "{}") {
+        const data = JSON.parse(rawData);
+        const filtros = JSON.parse(rawFiltros);
+        const tipo = filtros.tipo_grafico;
+        const colors = ['#1D6F42', '#36a2eb', '#ffce56', '#ff6384', '#4bc0c0', '#9966ff', '#ff9f40', '#009688', '#795548', '#607d8b'];
+
+        const ctx = document.getElementById('mainChart').getContext('2d');
+
+        // Adaptación de los 10 tipos de Chart.js
+        let chartConfig = {
+            type: tipo === 'horizontalBar' ? 'bar' : (tipo === 'area' || tipo === 'stepped' || tipo === 'point' ? 'line' : tipo),
+            data: {
+                labels: data.labels,
+                datasets: [{
+                    label: 'Cantidad de Personas',
+                    data: data.values,
+                    backgroundColor: ['pie', 'doughnut', 'polarArea', 'radar'].includes(tipo) ? colors : 'rgba(29, 111, 66, 0.7)',
+                    borderColor: '#1D6F42',
+                    borderWidth: 2,
+                    fill: tipo === 'area',
+                    stepped: tipo === 'stepped',
+                    showLine: tipo !== 'point',
+                    pointRadius: 6
+                }]
+            },
+            options: {
+                indexAxis: tipo === 'horizontalBar' ? 'y' : 'x',
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: true },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return ` ${context.raw} Personas`;
+                            }
+                        }
+                    }
+                },
+                scales: ['pie', 'doughnut', 'polarArea', 'radar'].includes(tipo) ? {} : {
+                    y: { 
+                        beginAtZero: true,
+                        title: { display: true, text: 'Personas' }
+                    }
+                }
+            }
+        };
+
+        new Chart(ctx, chartConfig);
+    }
+
+    function toggleDropdown(id, event) {
+        if (event) event.stopPropagation();
+        var element = document.getElementById(id);
+        document.querySelectorAll('.dropdown-check-list.visible').forEach(function(el) {
+            if (el.id !== id) el.classList.remove('visible');
+        });
+        element.classList.toggle('visible');
+    }
+
+    document.addEventListener('click', function(e) {
+        document.querySelectorAll('.dropdown-check-list.visible').forEach(function(dropdown) {
+            if (!dropdown.contains(e.target)) dropdown.classList.remove('visible');
+        });
+    });
+
+    document.addEventListener('DOMContentLoaded', function() {
+        renderDashboard();
+        var dropdowns = document.querySelectorAll('.dropdown-check-list');
+        dropdowns.forEach(function(dropdown) {
+            var anchor = dropdown.querySelector('.anchor');
+            var checkboxes = dropdown.querySelectorAll('input[type="checkbox"]');
+            
+            function updateLabel() {
+                var selected = [];
+                checkboxes.forEach(function(cb) {
+                    if (cb.checked) {
+                        selected.push(cb.parentElement.innerText.trim());
+                    }
+                });
+                if (selected.length > 0) {
+                    anchor.innerText = selected.length > 2 ? selected.length + " selec." : selected.join(", ");
+                } else {
+                    anchor.innerText = "-- Seleccionar --";
+                }
+            }
+
+            checkboxes.forEach(function(checkbox) {
+                checkbox.addEventListener('change', updateLabel);
+            });
+            updateLabel(); // Inicializar etiquetas al cargar
+        });
+    });
+</script>
+{% endblock %}

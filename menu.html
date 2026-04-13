@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <style>
+        /* OCULTAR MENÚ SUPERIOR (Ingresar/Salir) EN EL MENU PRINCIPAL */
+        .nav-links { display: none !important; }
+    </style>
+
+    <h2>CIUNH</h2>
+    
+    <div class="dashboard-menu">
+        <a href="{{ url_for('registrar_notificados') }}" class="menu-item">
+            <span class="icon">📝</span>
+            <span>Registrar Usuarios Notificados</span>
+        </a>
+        <a href="{{ url_for('verificar_notificados') }}" class="menu-item">
+            <span class="icon">✅</span>
+            <span>Verificar Usuarios Notificados</span>
+        </a>
+        <a href="{{ url_for('graficos_proyeccion') }}" class="menu-item">
+            <span class="icon">📊</span>
+            <span>Ver Gráficos Proyección</span>
+        </a>
+        <a href="/logout" class="menu-item">
+            <span class="icon">🚫</span>
+            <span>Cerrar Sesión</span>
+        </a>
+    </div>
+{% endblock %}

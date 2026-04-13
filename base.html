@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Acceso Gamer Profesional</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&family=Rajdhani:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #0b0c15;
+            --card-bg: rgba(20, 22, 35, 0.85);
+            --primary: #00f2ff; /* Neon Cyan */
+            --secondary: #7000ff; /* Neon Purple */
+            --text-color: #e0e6ed;
+            --input-bg: #151922;
+            --input-border: #2c3142;
+        }
+
+        body { 
+            font-family: 'Rajdhani', sans-serif; 
+            /* Imagen de Machu Picchu de fondo */
+            background: url('https://images.unsplash.com/photo-1587595431973-160d0d94add1?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80') no-repeat center center fixed;
+            background-size: cover;
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            min-height: 100vh; 
+            margin: 0; 
+            color: var(--text-color);
+        }
+
+        body::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(11, 12, 21, 0.7);
+            z-index: -1;
+        }
+
+        .container { 
+            background-color: var(--card-bg); 
+            backdrop-filter: blur(12px);
+            padding: 2.5rem; 
+            border-radius: 16px; 
+            box-shadow: 0 0 30px rgba(0,0,0,0.5), inset 0 0 2px rgba(255,255,255,0.1); 
+            border: 1px solid rgba(255,255,255,0.05);
+            width: 100%; 
+            max-width: 420px; 
+            text-align: center; 
+            position: relative;
+            overflow: hidden;
+            transition: all 0.4s ease;
+        }
+        
+        .container::after {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 3px;
+            background: linear-gradient(90deg, var(--secondary), var(--primary));
+            box-shadow: 0 0 15px var(--primary);
+        }
+
+        h1, h2 { 
+            font-family: 'Orbitron', sans-serif; 
+            color: white; 
+            margin-bottom: 1.5rem; 
+            letter-spacing: 2px;
+            text-shadow: 0 0 10px rgba(0, 242, 255, 0.4);
+            text-transform: uppercase;
+        }
+
+        input { 
+            width: 100%; 
+            padding: 14px; 
+            margin: 10px 0; 
+            background-color: var(--input-bg); 
+            border: 1px solid var(--input-border); 
+            border-radius: 8px; 
+            color: white;
+            font-family: 'Rajdhani', sans-serif;
+            font-size: 1.1em;
+            box-sizing: border-box; 
+            transition: all 0.3s ease;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 15px rgba(0, 242, 255, 0.2);
+            background-color: #1a1f2b;
+            transform: scale(1.02);
+        }
+        
+        input::placeholder { color: #6c757d; }
+        input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(1); cursor: pointer; }
+
+        button { 
+            width: 100%; 
+            padding: 14px; 
+            background: linear-gradient(135deg, var(--secondary) 0%, #a239ff 100%); 
+            color: white; 
+            border: none; 
+            border-radius: 8px; 
+            cursor: pointer; 
+            font-size: 1.1em; 
+            font-family: 'Orbitron', sans-serif;
+            margin-top: 20px; 
+            transition: all 0.3s ease; 
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            position: relative;
+            overflow: hidden;
+        }
+        button:hover { 
+            background: linear-gradient(135deg, #8a2be2 0%, var(--primary) 100%); 
+            box-shadow: 0 0 25px rgba(138, 43, 226, 0.6);
+            transform: translateY(-2px);
+        }
+
+        .nav-links { margin-bottom: 30px; display: flex; justify-content: center; gap: 20px; }
+        
+        .nav-btn {
+            text-decoration: none; padding: 12px 24px; font-family: 'Orbitron', sans-serif;
+            font-size: 0.9em; letter-spacing: 1px; text-transform: uppercase;
+            transition: all 0.3s ease; border: 2px solid transparent; background: rgba(0, 0, 0, 0.3);
+            position: relative; clip-path: polygon(10% 0, 100% 0, 100% 80%, 90% 100%, 0 100%, 0 20%);
+        }
+
+        .nav-btn.login { border-color: #ffe600; color: #ffe600; box-shadow: 0 0 10px rgba(255, 230, 0, 0.1); }
+        .nav-btn.login:hover { background: #ffe600; color: #000; box-shadow: 0 0 25px rgba(255, 230, 0, 0.8); transform: scale(1.05); }
+        
+        .nav-btn.register { border-color: #00ff41; color: #00ff41; box-shadow: 0 0 10px rgba(0, 255, 65, 0.1); }
+        .nav-btn.register:hover { background: #00ff41; color: #000; box-shadow: 0 0 25px rgba(0, 255, 65, 0.8); transform: scale(1.05); }
+
+        .nav-link-simple { color: #8899a6; text-decoration: none; font-weight: 600; margin: 0 10px; transition: 0.3s; }
+        .nav-link-simple:hover { color: var(--primary); }
+
+        .alert { background: rgba(255, 87, 87, 0.1); border-left: 3px solid #ff5757; color: #ff5757; padding: 12px; border-radius: 5px; margin-bottom: 20px; text-align: left; font-size: 0.9em; }
+
+        /* --- ESTILOS DEL DASHBOARD MENU --- */
+        .dashboard-menu {
+            display: grid;
+            grid-template-columns: 1fr; /* Una sola columna */
+            gap: 15px;
+            margin-top: 20px;
+        }
+        
+        .menu-item {
+            /* Fondo Rojo Rosa (Gradient) estilo Gamer */
+            background: linear-gradient(135deg, rgba(255, 0, 80, 0.15) 0%, rgba(200, 0, 60, 0.05) 100%);
+            border: 1px solid rgba(255, 0, 80, 0.5); /* Borde rosa neón */
+            padding: 15px;
+            border-radius: 12px;
+            text-decoration: none;
+            color: var(--text-color);
+            transition: all 0.3s;
+            display: flex;
+            align-items: center; /* Alinear icono y texto horizontalmente */
+            justify-content: flex-start;
+            font-family: 'Rajdhani', sans-serif;
+            font-weight: 600;
+            position: relative; /* Necesario para la marca de agua absoluta */
+            overflow: hidden; /* Corta el icono si es muy grande */
+            min-height: 60px;
+        }
+
+        .menu-item:hover { background: rgba(255, 0, 80, 0.3); border-color: #ff0050; box-shadow: 0 0 20px rgba(255, 0, 80, 0.3); transform: translateX(5px); }
+        
+        /* Icono estilo Marca de Agua (Sin color, grande, fondo) */
+        .menu-item .icon { 
+            position: absolute;
+            right: -10px;
+            bottom: -15px;
+            font-size: 5rem; /* Tamaño gigante */
+            margin-right: 0; 
+            filter: grayscale(100%); /* Sin color */
+            opacity: 0.15; /* Transparente */
+            transform: rotate(-10deg);
+            pointer-events: none; /* Click a través del icono */
+            z-index: 0;
+        }
+
+        /* Texto visible sobre la marca de agua */
+        .menu-item span:not(.icon) {
+            position: relative;
+            z-index: 2;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.8);
+        }
+
+        .footer { margin-top: 30px; font-size: 0.8em; color: #555; font-family: 'Rajdhani', sans-serif; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="nav-links">
+            <a href="/login" class="nav-btn login">Ingresar</a>
+            <a href="/register" class="nav-btn register">Registrar</a>
+        </div>
+
+        {% with messages = get_flashed_messages() %}
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="alert">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        {% block content %}{% endblock %}
+        
+        <div class="footer">SECURE LOGIN SYSTEM &bull; v2.0</div>
+    </div>
+</body>
+</html>
